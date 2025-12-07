@@ -1,0 +1,8 @@
+*.env
+*.env.test
+*.env.production
+*.env.sample
+
+/.vscode
+/node_modules
+./dist
