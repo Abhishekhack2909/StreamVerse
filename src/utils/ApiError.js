@@ -3,7 +3,7 @@ class ApiError extends Error{
         statusCode, 
         message="Something went wrong",
         error=[], 
-        statck=""
+        stack=""
 
     ){
         //overrride
@@ -14,8 +14,8 @@ class ApiError extends Error{
         this.success=false,// Useful for API response format
         this.errors= errors
 
-        if( statck){ //stack trace is the only thing that tells you where your backend broke
-             this.stack =statck
+        if( stack){ //stack trace is the only thing that tells you where your backend broke
+             this.stack =stack
         }else{
             Error.captureStackTrace(this, this.constructor)
         }
