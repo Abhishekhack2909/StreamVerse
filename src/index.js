@@ -1,13 +1,14 @@
 import mongoose from 'mongoose'
 import {DB_NAME} from "./constants.js"
 import connectDB from './db/DB.js'
+import {app} from './app.js'
 import dotenv from 'dotenv'
 dotenv.config({ path: './.env' })
 
 
 connectDB()
 .then(()=>{
-     app.on("error", (erroe)=>{
+     app.on("error", (error)=>{
         console.log("ERR :", error);
         throw error
      })
