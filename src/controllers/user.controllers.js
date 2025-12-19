@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import { removefromCloudinary } from "../utils/removeImage.js";
 
 // Notes about imports:
 // - asyncHandler: wraps async Express handlers so thrown errors go to Express error middleware.
@@ -409,6 +410,8 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Avatar file is missing");
   }
 
+  // to delete the previous
+
   // Upload to Cloudinary then store URL in DB.
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
@@ -416,6 +419,16 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
     // if url is not there than throw error
     throw new ApiError(400, "Error while uploading avatar image");
   }
+  // Remove previous avatar from Cloudinary
+  const currentUser = await User.findById(req.user?._id);
+  if(!currentUser){
+    throw new ApiError(404, "User not found");
+
+  }
+   if (user.avatarPublicId) {
+    await removeFromCloudinary(user.avatarPublicId);
+  }
+
   // Persist new avatar URL
   const user = await User.findByIdAndUpdate(
     req.user?._id,
