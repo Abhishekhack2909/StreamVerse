@@ -1,4 +1,5 @@
 import mongoose,{Schema} from 'mongoose'
+import  mongooseAggregatePaginate from 'mongoose-aggregate-paginate-v2' // pagination plugin
 const videoSchema = new Schema(
     {
         videoFile :{
@@ -37,7 +38,7 @@ const videoSchema = new Schema(
 
 }, {timestamps:true})
 
-
+videoSchema.plugin(mongooseAggregatePaginate) // adding pagination plugin to video schema
 
 
 export const video = mongoose.model("Video", videoSchema)

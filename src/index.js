@@ -1,3 +1,8 @@
+// Its responsibilities are only 3 things:
+//Load environment variables
+//Connect to the database
+//Start the HTTP server
+//It does NOT handle routes, logic, auth, videos, etc.
 import mongoose from 'mongoose'
 import {DB_NAME} from "./constants.js"
 import connectDB from './db/DB.js'

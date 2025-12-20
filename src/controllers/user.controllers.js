@@ -255,7 +255,7 @@ export const logoutuser = asyncHandler(async (req, res) => {
     req.user._id,
     {
       $set: {
-        refreshToken: undefined,
+        refreshToken: null,// set refresh token to null
       },
     },
     {
