@@ -2,10 +2,12 @@ import { ApiError } from "../utils/ApiError.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 import jwt from "jsonwebtoken"
 import { User } from "../models/user.model.js"
+
+
 export const verifyJWT = asyncHandler(async(req , _ , //here the res is  not used than we simply leave is with _
     next)=>{
      try {
-        const token =req.cookies?.accessToken||req.header("Authorization")?.replace
+         const token =req.cookies?.accessToken||req.header("Authorization")?.replace
        ("Bearer", "")
        // here we are using accesToken for websites and  Authorization for mobile devices and replace is used to remove bearer from token
        if(!token){

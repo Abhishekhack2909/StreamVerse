@@ -17,6 +17,7 @@ const userSchema = new Schema(
       unique: true,
       lowercase: true,
       trim: true,
+
     },
     fullname: {
       type: String,
@@ -47,6 +48,8 @@ const userSchema = new Schema(
   },
   { timestamps: true }
 );
+
+// pre save hook to encrypt password
 userSchema.pre("save", async function () {
   // for making the password ecrypted
   if (!this.isModified("password")) return; // if other thing are updated than not to update the password everytime

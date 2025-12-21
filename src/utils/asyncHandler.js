@@ -1,3 +1,4 @@
+//AsyncHandler catches async errors and sends them to Express automatically.
 // for making the util we have two method , by simply  async await  or promisies
 
 // promisies method >>>
@@ -10,7 +11,6 @@ const asyncHandler=(requestHandler)=>{
 
 export {asyncHandler}
 
-  
 
 
 
