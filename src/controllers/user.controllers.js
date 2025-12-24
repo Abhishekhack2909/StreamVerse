@@ -30,7 +30,7 @@ import { removefromCloudinary } from "../utils/removeImage.js";
 // Generates a fresh access token + refresh token pair and persists refresh token on the user.
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId); // find the user by id
 
     // Access token is short-lived (used for authorization).
     // Refresh token is long-lived (used only to get a new access token).
@@ -38,7 +38,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
     const refreshToken = user.generateRefreshToken();
 
     // to make the add these token in user( or make the data in object)
-    user.refreshToken = refreshToken;
+    user.refreshToken = refreshToken; //
 
     // Why validateBeforeSave:false?
     // We are only storing refreshToken; we are not changing required fields like password.
@@ -46,7 +46,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
     await user.save({ validateBeforeSave: false });
 
     return { accessToken, refreshToken };
-    // now we need simplt call this when need in login
+    // now we need simple call this when need in login
   } catch (error) {
     throw new ApiError(
       500,
@@ -98,7 +98,7 @@ export const registeruser = asyncHandler(async (req, res) => {
 
   // 2) Validate: check all required fields are present and not empty
   if (
-    [fullname, email, username, password].some((field) => field?.trim() === "")
+    [fullname, email, username, password].some((field) => field?.trim() === "") //
   ) {
     throw new ApiError(400, "All fields are required");
   }
@@ -111,7 +111,7 @@ export const registeruser = asyncHandler(async (req, res) => {
 
   // 3) Uniqueness check: do not allow duplicate email or username
   const existedUser = await User.findOne({
-    $or: [{ username }, { email }], // $or parameter=> to check or do anyting in any number of parameter
+    $or: [{ username }, { email }], // $or parameter=> to check or do anything in any number of parameter
   });
   if (existedUser) {
     throw new ApiError(409, "user with email or username already exists");
@@ -259,7 +259,7 @@ export const logoutuser = asyncHandler(async (req, res) => {
       },
     },
     {
-      new: true,
+      new: true, // return the updated document
     }
   );
   const options = {
@@ -362,11 +362,13 @@ export const changePassword = asyncHandler(async (req, res) => {
   user.password = newPassword;
   // validateBeforeSave:false is OK here because we're only changing password,
   // but you can remove it if you want full schema validation.
-  await user.save({ validateBeforeSave: false });
-
+  await user.save({ validateBeforeSave: true }); //after this user password is changed 
+  //now logout hit and again login with new password
+  //On the frontend, after success, call the logout endpoint to clear tokens and redirect to login.
+  
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "Password changed SuccessFully"));
+    .json(new ApiResponse(200, {}, "Password changed SuccessFully, please log in again"));
 });
 
 export const getcurrentuser = asyncHandler(async (req, res) => {
@@ -410,7 +412,7 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Avatar file is missing");
   }
 
-  // to delete the previous
+
 
   // Upload to Cloudinary then store URL in DB.
   const avatar = await uploadOnCloudinary(avatarLocalPath);
@@ -426,7 +428,7 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
 
   }
   if (user.avatarPublicId) {
-    await removeFromCloudinary(user.avatarPublicId);
+    await removefromCloudinary(user.avatarPublicId);
   }
 
   // Persist new avatar URL
@@ -489,7 +491,7 @@ export const  getUserChannelProfile=asyncHandler(async(req, res)=>{
  // User.find({username: username.toLowerCase()) 
  //but we are not doing this because we have aggregation pipeline in user model( by match field)
 
- const channel=User.aggregate([
+const channel=User.aggregate([
 
   //match stage to filter documents based on criteria
   {  
@@ -522,13 +524,13 @@ export const  getUserChannelProfile=asyncHandler(async(req, res)=>{
   {
     $addFields:{ //`addFields` stage to add new fields to documents.
       subscribersCount:{         
-               $size:"$subscribers"}, 
+              $size:"$subscribers"}, 
       // Calculate total subscribers by getting size of subscribers array
       channelSubscribedToCount:{ 
               $size:"$subscribedTo"}, // Calculate total subscribedTo by getting size of subscribedTo array
 
          isSubscribed:{    // Determine if current user is subscribed to this channel
-              $cond:{ // conditional operator
+            $cond:{ // conditional operator
              if:{ // condition to check if the current user is subscribed to this channel}
                   $in:  //in operator to check if a value  exists in an array
                   [req.user?._id,"$subscribers.subscriber"] // check if current user's ID is in the subscribers list
@@ -536,7 +538,7 @@ export const  getUserChannelProfile=asyncHandler(async(req, res)=>{
               then:true,  // if condition is true than set isSubscribed to true
               else:false
 
-         }
+        }
         }
               
 

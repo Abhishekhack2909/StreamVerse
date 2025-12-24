@@ -20,6 +20,8 @@ app.use(cookieParser()) // for taking cookie info to server or many thing with s
 import userRouter from './routes/user.routes.js'
 //routes declaration
 app.use("/api/v1/users", userRouter)
+app.use("/api/v1/videos", videoRouter)
+
 
 export { app }
 

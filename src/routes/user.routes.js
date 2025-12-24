@@ -13,10 +13,16 @@ import {
   watchhistory
 
 } from "../controllers/user.controllers.js";
+
 import { upload } from "../middlewares/multer.middleware.js";
+
 import { verifyJWT } from "../middlewares/auth.middleware.js";
+
 import { verify } from "crypto";
 const router = Router();
+
+
+//router for register
 router.route("/register").post(
   upload.fields([
     { name: "avatar", maxCount: 1 },
