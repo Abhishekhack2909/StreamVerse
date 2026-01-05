@@ -255,7 +255,7 @@ export const logoutuser = asyncHandler(async (req, res) => {
     req.user._id,
     {
       $set: {
-        refreshToken: null,// set refresh token to null
+        refreshToken: null, // set refresh token to null
       },
     },
     {
@@ -362,13 +362,19 @@ export const changePassword = asyncHandler(async (req, res) => {
   user.password = newPassword;
   // validateBeforeSave:false is OK here because we're only changing password,
   // but you can remove it if you want full schema validation.
-  await user.save({ validateBeforeSave: true }); //after this user password is changed 
+  await user.save({ validateBeforeSave: true }); //after this user password is changed
   //now logout hit and again login with new password
   //On the frontend, after success, call the logout endpoint to clear tokens and redirect to login.
-  
+
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "Password changed SuccessFully, please log in again"));
+    .json(
+      new ApiResponse(
+        200,
+        {},
+        "Password changed SuccessFully, please log in again"
+      )
+    );
 });
 
 export const getcurrentuser = asyncHandler(async (req, res) => {
@@ -412,8 +418,6 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Avatar file is missing");
   }
 
-
-
   // Upload to Cloudinary then store URL in DB.
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
@@ -423,9 +427,8 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
   }
   // Remove previous avatar from Cloudinary
   const currentUser = await User.findById(req.user?._id);
-  if(!currentUser){
+  if (!currentUser) {
     throw new ApiError(404, "User not found");
-
   }
   if (user.avatarPublicId) {
     await removefromCloudinary(user.avatarPublicId);
@@ -480,166 +483,164 @@ export const updateUserCover = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "User cover image updated successfully"));
 });
 
-export const  getUserChannelProfile=asyncHandler(async(req, res)=>{
+export const getUserChannelProfile = asyncHandler(async (req, res) => {
   // Fetches public profile of a user by their ID (for channel/profile pages).
-  const {username }=req.params // we get the username from params because params are used to identify resources in the url like id or username
-  if(!username?.trim()){
-    throw new ApiError(400, "username is missing ")
+  const { username } = req.params; // we get the username from params because params are used to identify resources in the url like id or username
+  if (!username?.trim()) {
+    throw new ApiError(400, "username is missing ");
   }
 
   //  Find user by username (normalize to lowercase to match registration)
- // User.find({username: username.toLowerCase()) 
- //but we are not doing this because we have aggregation pipeline in user model( by match field)
+  // User.find({username: username.toLowerCase())
+  //but we are not doing this because we have aggregation pipeline in user model( by match field)
 
-const channel=User.aggregate([
+  const channel = User.aggregate([
+    //match stage to filter documents based on criteria
+    {
+      $match: {
+        // `match` stage to filter documents based on criteria.
+        username: username.toLowerCase(),
+      },
+    },
+    //lookup  to get the subscribers and subscribedTo count
+    {
+      $lookup: {
+        //`lookup` stage to perform a left outer join with another collection.
+        from: "subscription", // collection to join
+        localField: "_id", // field from the input documents
+        foreignField: "channel", // field from the documents of the "from" collection
+        as: "subscribers", // output array field
+      },
+    },
+    // second lookup to get the subscribedTo count
+    {
+      $lookup: {
+        //`lookup` stage to perform a left outer join with another collection.
+        from: "subscription", // collection to join
+        localField: "_id", // field from the input documents
+        foreignField: "subscriber", // field from the documents of the "from" collection
+        as: "subscribedTo", // output array field
+      },
+    },
 
-  //match stage to filter documents based on criteria
-  {  
-    $match:{ // `match` stage to filter documents based on criteria.
-      username:username.toLowerCase()
-    }
-  },
-   //lookup  to get the subscribers and subscribedTo count
-  { 
-    $lookup:{ //`lookup` stage to perform a left outer join with another collection.
-      from:"subscription", // collection to join
-      localField:"_id", // field from the input documents
-      foreignField:"channel", // field from the documents of the "from" collection
-      as:"subscribers" // output array field
+    {
+      $addFields: {
+        //`addFields` stage to add new fields to documents.
+        subscribersCount: {
+          $size: "$subscribers",
+        },
+        // Calculate total subscribers by getting size of subscribers array
+        channelSubscribedToCount: {
+          $size: "$subscribedTo",
+        }, // Calculate total subscribedTo by getting size of subscribedTo array
 
+        isSubscribed: {
+          // Determine if current user is subscribed to this channel
+          $cond: {
+            // conditional operator
+            if: {
+              // condition to check if the current user is subscribed to this channel}
+              //in operator to check if a value  exists in an array
+              $in: [req.user?._id, "$subscribers.subscriber"], // check if current user's ID is in the subscribers list
+            },
+            then: true, // if condition is true than set isSubscribed to true
+            else: false,
+          },
+        },
+      },
+    },
 
-    }
-  },
-  // second lookup to get the subscribedTo count
-  {
-    $lookup:{ //`lookup` stage to perform a left outer join with another collection.
-      from:"subscription", // collection to join
-      localField:"_id", // field from the input documents
-      foreignField:"subscriber", // field from the documents of the "from" collection
-      as:"subscribedTo" // output array field
-    }
+    {
+      $project: {
+        //`project` stage to shape the output documents.
+        //1 means include the field, 0 means exclude
+        fullName: 1,
+        username: 1,
+        subscribersCount: 1,
+        channelSubscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        createdAt: 1,
+        email: 1,
+      },
+    },
+  ]);
 
-  },
-  
-  {
-    $addFields:{ //`addFields` stage to add new fields to documents.
-      subscribersCount:{         
-              $size:"$subscribers"}, 
-      // Calculate total subscribers by getting size of subscribers array
-      channelSubscribedToCount:{ 
-              $size:"$subscribedTo"}, // Calculate total subscribedTo by getting size of subscribedTo array
-
-         isSubscribed:{    // Determine if current user is subscribed to this channel
-            $cond:{ // conditional operator
-             if:{ // condition to check if the current user is subscribed to this channel}
-                  $in:  //in operator to check if a value  exists in an array
-                  [req.user?._id,"$subscribers.subscriber"] // check if current user's ID is in the subscribers list
-              },
-              then:true,  // if condition is true than set isSubscribed to true
-              else:false
-
-        }
-        }
-              
-
-    }
-  },
-
-  {
-    $project:{ //`project` stage to shape the output documents. 
-      //1 means include the field, 0 means exclude
-      fullName:1,
-      username:1,
-      subscribersCount:1,
-      channelSubscribedToCount:1,
-      isSubscribed:1,
-      avatar:1,
-      coverImage:1,
-      createdAt:1,
-      email:1
-
-
-    }
-  }
-
- ])
-
-  if(!channel|| channel.length===0){
-    throw new ApiError(404, "Channel does not exist ")
+  if (!channel || channel.length === 0) {
+    throw new ApiError(404, "Channel does not exist ");
   }
   return res
-  .status(200)
-  .json(new ApiResponse(200,channel[0], "User channel fetched successfully"))
-})
+    .status(200)
+    .json(
+      new ApiResponse(200, channel[0], "User channel fetched successfully")
+    );
+});
 
 // Fetches the watch history for the current user.
-export const watchhistory=asyncHandler(async(req, res)=>{
-
+export const watchhistory = asyncHandler(async (req, res) => {
   //imp //req.user._id // here is the  interview q
-   // by this we get the string not full id  , but mongoose by default make the id for that string.
-  const user =await User.aggregate(
-    [     //
+  // by this we get the string not full id  , but mongoose by default make the id for that string.
+  const user = await User.aggregate([
+    //
     {
-      $match:{
-        _id:new mongoose.Types.ObjectId(req.user.id)
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user.id),
         // convert string to object id
-      }
+      },
     }, //
     {
-      $lookup:{ // lookup stage to join with videos collection to get watch history details
-          from :"videos",
-          localField:"watchHistory",
-          foreignField:"_id",
-          as:"watchHistory",
-          pipeline:[
-            { //nested pipiline  to get the owner details
-                      $lookup:{
-                          from:"users",
-                          localField:"owner",
-                          foreignField:"_id",
-                          as:"owner",
-                          pipeline:[{ // to get only required fields
-                              $project:{
-                                fullName:1,
-                                username:1,
-                                avatar:1
-                            }
-                            
-                          }]
-              }
-          }, {
-                $addFields:{ // to add the owner field as single object not array
-                  owner:{
-                    $first:"$owner" // owner is an array after lookup, so we get the first element
-                  }
-                }
-          }
+      $lookup: {
+        // lookup stage to join with videos collection to get watch history details
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
+            //nested pipiline  to get the owner details
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  // to get only required fields
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              // to add the owner field as single object not array
+              owner: {
+                $first: "$owner", // owner is an array after lookup, so we get the first element
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
 
-        ]
-
-      }
-    }
-
-]) 
-
-// that flow is like 
-//USER
-//│
-//├─ $match → logged-in user
-//│
-//├─ $lookup → videos from watchHistory
-//│   │
-//│   └─ $lookup → owner (channel)
-//│       │
-//│       └─ $project → name, avatar only
-//│
-//└─ $addFields → clean owner object
-//
-return res
-.status(200)
-.json(new ApiResponse
-  (200,user[0].watchHistory))
-
-
-  
-})
+  // that flow is like
+  //USER
+  //│
+  //├─ $match → logged-in user
+  //│
+  //├─ $lookup → videos from watchHistory
+  //│   │
+  //│   └─ $lookup → owner (channel)
+  //│       │
+  //│       └─ $project → name, avatar only
+  //│
+  //└─ $addFields → clean owner object
+  //
+  return res.status(200).json(new ApiResponse(200, user[0].watchHistory));
+});
