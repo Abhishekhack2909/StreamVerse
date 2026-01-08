@@ -1,5 +1,5 @@
 import mongoose, { isValidObjectId } from "mongoose";
-import { playlist as Playlist } from "../models/playlist.model.js";
+import { Playlist } from "../models/playlist.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -66,7 +66,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   }
 
   const playlist = await Playlist.findById(playlistId)
-    .populate("video")
+    .populate("videos")
     .populate("owner", "username avatar");
 
   if (!playlist) {
@@ -106,9 +106,11 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You are not allowed to modify this playlist");
   }
 
-  // Update the video field (since schema has single video reference)
-  playlist.video = videoId;
-  await playlist.save();
+  // Add video to videos array if not already present
+  if (!playlist.videos.includes(videoId)) {
+    playlist.videos.push(videoId);
+    await playlist.save();
+  }
 
   res
     .status(200)
@@ -145,11 +147,9 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You are not allowed to modify this playlist");
   }
 
-  // Remove video by setting to null
-  if (playlist.video && playlist.video.toString() === videoId) {
-    playlist.video = null;
-    await playlist.save();
-  }
+  // Remove video from videos array
+  playlist.videos = playlist.videos.filter((vid) => vid.toString() !== videoId);
+  await playlist.save();
 
   res
     .status(200)
