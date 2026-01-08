@@ -11,35 +11,34 @@ const getVideoComments = asyncHandler(async (req, res) => {
   // step 1: validate videoId
   // step 2: fetch comments from db with pagination
   // step 3: return response with comments
-  const isvalid=mongoose.Types.ObjectId.isvalid(videoId);
-      if(!isvalid){
-        throw new ApiError(400, "Invalid videoId");
-      }
-      else{
-        // step 2: fetch comments from db with pagination
-        const comments=await Comment.find({ videoId: videoId })
-        .skip((page-1)*limit)
-        .limit(limit)
-        .populate("commentedBy","username email");
-      }
-      //step 3  return the response
-      res
-      .status(200)
-      .json(new ApiResponse(200, "Comments fetched Succesfully ", comments));
-  
+  const isValid = mongoose.Types.ObjectId.isValid(videoId);
+  if (!isValid) {
+    throw new ApiError(400, "Invalid videoId");
+  }
+
+  // step 2: fetch comments from db with pagination
+  const comments = await Comment.find({ videoId: videoId })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .populate("commentedBy", "username email");
+
+  //step 3  return the response
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Comments fetched Succesfully ", comments));
 });
 
 const addComment = asyncHandler(async (req, res) => {
   // TODO: add a comment to a video
   // step 1:  get  videoId from req.params
   //step 2: get comment text from req.body
-  // step 3: get userId from req.user_id(set by verifyJWT middleware)
+  // step 3: get userId from req.user._id (set by verifyJWT middleware)
   //` step 4: create comment document and save to db
   // step5: return the response with created comment
 
   const { videoId } = req.params;
   const { text } = req.body;
-  const userId = req.userId;
+  const userId = req.user._id;
   if (!text || text.trim() === "") {
     throw new ApiError(400, "comment text cannnot be empty");
   }
@@ -65,12 +64,12 @@ const updateComment = asyncHandler(async (req, res) => {
 
   const { commentId } = req.params;
   const { text } = req.body;
-  const userId = req.userId;
+  const userId = req.user._id;
   const comment = await Comment.findById(commentId);
   if (!comment) {
     throw new ApiError(404, "Comment not found");
   }
-  if (comment.commentedBy.toString() !== userId) {
+  if (comment.commentedBy.toString() !== userId.toString()) {
     throw new ApiError(403, "You are not authorized to update this comment");
   }
 
@@ -91,13 +90,13 @@ const deleteComment = asyncHandler(async (req, res) => {
   // step 5: delete the comment
   // step 6: return response with success message
   const { commentId } = req.params;
-  const userId = req.userId;
+  const userId = req.user._id;
 
   const comment = await Comment.findById(commentId);
   if (!comment) {
     throw new ApiError(404, "Comment not found");
   }
-  if (comment.commentedBy.toString() !== userId) {
+  if (comment.commentedBy.toString() !== userId.toString()) {
     throw new ApiError(403, "You are not authorized to delete this comment");
   }
   await comment.deleteOne();

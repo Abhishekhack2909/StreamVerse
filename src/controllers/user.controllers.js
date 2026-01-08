@@ -430,6 +430,7 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
   if (!currentUser) {
     throw new ApiError(404, "User not found");
   }
+  //
   if (user.avatarPublicId) {
     await removefromCloudinary(user.avatarPublicId);
   }
@@ -448,7 +449,9 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, user, "User avatar updated successfully"));
+    .json(
+      new ApiResponse(200, updatedUser, "User avatar updated successfully")
+    );
 });
 
 export const updateUserCover = asyncHandler(async (req, res) => {
@@ -494,7 +497,7 @@ export const getUserChannelProfile = asyncHandler(async (req, res) => {
   // User.find({username: username.toLowerCase())
   //but we are not doing this because we have aggregation pipeline in user model( by match field)
 
-  const channel = User.aggregate([
+  const channel = await User.aggregate([
     //match stage to filter documents based on criteria
     {
       $match: {
