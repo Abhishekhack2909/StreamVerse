@@ -7,6 +7,7 @@ import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import Watch from './pages/Watch/Watch';
 import Upload from './pages/Upload/Upload';
+import Edit from './pages/Edit/Edit';
 import Channel from './pages/Channel/Channel';
 import Search from './pages/Search/Search';
 import History from './pages/History/History';
@@ -33,6 +34,11 @@ function App() {
             <Route path="upload" element={
               <ProtectedRoute>
                 <Upload />
+              </ProtectedRoute>
+            } />
+            <Route path="edit/:videoId" element={
+              <ProtectedRoute>
+                <Edit />
               </ProtectedRoute>
             } />
             <Route path="history" element={

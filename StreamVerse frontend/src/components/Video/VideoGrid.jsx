@@ -1,7 +1,7 @@
 import VideoCard from './VideoCard';
 import './VideoGrid.css';
 
-const VideoGrid = ({ videos, loading }) => {
+const VideoGrid = ({ videos, loading, onVideoDelete }) => {
   if (loading) {
     return (
       <div className="video-grid">
@@ -35,7 +35,7 @@ const VideoGrid = ({ videos, loading }) => {
   return (
     <div className="video-grid">
       {videoList.map((video) => (
-        <VideoCard key={video._id} video={video} />
+        <VideoCard key={video._id} video={video} onDelete={onVideoDelete} />
       ))}
     </div>
   );

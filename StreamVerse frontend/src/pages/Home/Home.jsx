@@ -25,9 +25,13 @@ const Home = () => {
     }
   };
 
+  const handleVideoDelete = (videoId) => {
+    setVideos(videos.filter(v => v._id !== videoId));
+  };
+
   return (
     <div className="home">
-      <VideoGrid videos={videos} loading={loading} />
+      <VideoGrid videos={videos} loading={loading} onVideoDelete={handleVideoDelete} />
     </div>
   );
 };
