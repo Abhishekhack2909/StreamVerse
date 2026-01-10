@@ -8,6 +8,7 @@ import Register from './pages/Auth/Register';
 import Watch from './pages/Watch/Watch';
 import Upload from './pages/Upload/Upload';
 import Edit from './pages/Edit/Edit';
+import EditChannel from './pages/EditChannel/EditChannel';
 import Channel from './pages/Channel/Channel';
 import Search from './pages/Search/Search';
 import History from './pages/History/History';
@@ -39,6 +40,11 @@ function App() {
             <Route path="edit/:videoId" element={
               <ProtectedRoute>
                 <Edit />
+              </ProtectedRoute>
+            } />
+            <Route path="edit-channel" element={
+              <ProtectedRoute>
+                <EditChannel />
               </ProtectedRoute>
             } />
             <Route path="history" element={

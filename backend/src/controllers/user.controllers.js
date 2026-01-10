@@ -411,47 +411,25 @@ export const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 export const updateUserAvatar = asyncHandler(async (req, res) => {
-  // Updates avatar image for current user.
-  // Multer puts single-file upload into req.file (not req.files)
   const avatarLocalPath = req.file?.path;
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is missing");
   }
 
-  // Upload to Cloudinary then store URL in DB.
   const avatar = await uploadOnCloudinary(avatarLocalPath);
-
-  if (!avatar.url) {
-    // if url is not there than throw error
+  if (!avatar?.url) {
     throw new ApiError(400, "Error while uploading avatar image");
   }
-  // Remove previous avatar from Cloudinary
-  const currentUser = await User.findById(req.user?._id);
-  if (!currentUser) {
-    throw new ApiError(404, "User not found");
-  }
-  //
-  if (user.avatarPublicId) {
-    await removefromCloudinary(user.avatarPublicId);
-  }
 
-  // Persist new avatar URL
   const user = await User.findByIdAndUpdate(
     req.user?._id,
-    {
-      $set: {
-        // to set the new value
-        avatar: avatar.url,
-      },
-    },
+    { $set: { avatar: avatar.url } },
     { new: true }
-  ).select("-password");
+  ).select("-password -refreshToken");
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, updatedUser, "User avatar updated successfully")
-    );
+    .json(new ApiResponse(200, user, "User avatar updated successfully"));
 });
 
 export const updateUserCover = asyncHandler(async (req, res) => {
@@ -487,76 +465,48 @@ export const updateUserCover = asyncHandler(async (req, res) => {
 });
 
 export const getUserChannelProfile = asyncHandler(async (req, res) => {
-  // Fetches public profile of a user by their ID (for channel/profile pages).
-  const { username } = req.params; // we get the username from params because params are used to identify resources in the url like id or username
+  const { username } = req.params;
   if (!username?.trim()) {
-    throw new ApiError(400, "username is missing ");
+    throw new ApiError(400, "username is missing");
   }
 
-  //  Find user by username (normalize to lowercase to match registration)
-  // User.find({username: username.toLowerCase())
-  //but we are not doing this because we have aggregation pipeline in user model( by match field)
-
   const channel = await User.aggregate([
-    //match stage to filter documents based on criteria
     {
       $match: {
-        // `match` stage to filter documents based on criteria.
         username: username.toLowerCase(),
       },
     },
-    //lookup  to get the subscribers and subscribedTo count
     {
       $lookup: {
-        //`lookup` stage to perform a left outer join with another collection.
-        from: "subscription", // collection to join
-        localField: "_id", // field from the input documents
-        foreignField: "channel", // field from the documents of the "from" collection
-        as: "subscribers", // output array field
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channelId",
+        as: "subscribers",
       },
     },
-    // second lookup to get the subscribedTo count
     {
       $lookup: {
-        //`lookup` stage to perform a left outer join with another collection.
-        from: "subscription", // collection to join
-        localField: "_id", // field from the input documents
-        foreignField: "subscriber", // field from the documents of the "from" collection
-        as: "subscribedTo", // output array field
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriberId",
+        as: "subscribedTo",
       },
     },
-
     {
       $addFields: {
-        //`addFields` stage to add new fields to documents.
-        subscribersCount: {
-          $size: "$subscribers",
-        },
-        // Calculate total subscribers by getting size of subscribers array
-        channelSubscribedToCount: {
-          $size: "$subscribedTo",
-        }, // Calculate total subscribedTo by getting size of subscribedTo array
-
+        subscribersCount: { $size: "$subscribers" },
+        channelSubscribedToCount: { $size: "$subscribedTo" },
         isSubscribed: {
-          // Determine if current user is subscribed to this channel
           $cond: {
-            // conditional operator
-            if: {
-              // condition to check if the current user is subscribed to this channel}
-              //in operator to check if a value  exists in an array
-              $in: [req.user?._id || null, "$subscribers.subscriber"], // check if current user's ID is in the subscribers list
-            },
-            then: true, // if condition is true than set isSubscribed to true
+            if: { $in: [req.user?._id || null, "$subscribers.subscriberId"] },
+            then: true,
             else: false,
           },
         },
       },
     },
-
     {
       $project: {
-        //`project` stage to shape the output documents.
-        //1 means include the field, 0 means exclude
         _id: 1,
         fullname: 1,
         username: 1,
@@ -572,13 +522,12 @@ export const getUserChannelProfile = asyncHandler(async (req, res) => {
   ]);
 
   if (!channel || channel.length === 0) {
-    throw new ApiError(404, "Channel does not exist ");
+    throw new ApiError(404, "Channel does not exist");
   }
+  
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, channel[0], "User channel fetched successfully")
-    );
+    .json(new ApiResponse(200, channel[0], "User channel fetched successfully"));
 });
 
 // Fetches the watch history for the current user.

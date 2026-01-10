@@ -7,33 +7,32 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const toggleSubscription = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
-  // TODO: toggle subscription
-  //step1: get subscriberId from req.user._id (set by verifyJWT middleware)
-  // step2: check if a subscription document already exists for the given channelId and subscriberId
-  // if exists then remove it (unsubscribe) else create a new subscription document (subscribe)
-  // return appropriate response
-
   const subscriberId = req.user._id;
 
   if (!isValidObjectId(channelId)) {
-    throw new ApiError(400, "Invlid channel id");
+    throw new ApiError(400, "Invalid channel id");
   }
-  const existedSusbscription = await Subscription.findOne({
+
+  const existedSubscription = await Subscription.findOne({
     channelId: channelId,
     subscriberId: subscriberId,
   });
-  if (existedSusbscription) {
-    await Subscription.deleteOne({ _id: existedSusbscription._id }); // delete the existing subscription
+
+  let subscribed = false;
+  if (existedSubscription) {
+    await Subscription.deleteOne({ _id: existedSubscription._id });
+    subscribed = false;
   } else {
-    const newSubscription = await Subscription.create({
+    await Subscription.create({
       channelId: channelId,
       subscriberId: subscriberId,
     });
+    subscribed = true;
   }
-  //now reponse
-  res
-    .status(200)
-    .json(new ApiResponse(200, "Subscription toggled Succesfully ", null));
+
+  res.status(200).json(
+    new ApiResponse(200, { subscribed }, "Subscription toggled successfully")
+  );
 });
 
 // controller to return subscriber list of a channel

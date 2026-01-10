@@ -3,9 +3,15 @@ import API from '../../api/axios';
 import VideoGrid from '../../components/Video/VideoGrid';
 import './Home.css';
 
+const categories = [
+  'All', 'Music', 'Gaming', 'News', 'Sports', 'Entertainment', 
+  'Education', 'Science', 'Technology', 'Comedy', 'Film', 'Travel'
+];
+
 const Home = () => {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('All');
 
   useEffect(() => {
     fetchVideos();
@@ -15,7 +21,6 @@ const Home = () => {
     try {
       const { data } = await API.get('/videos');
       console.log('Videos response:', data);
-      // Backend returns { data: { videos: [...], pagination: {...} } }
       setVideos(data.data?.videos || data.data?.docs || data.data || []);
     } catch (error) {
       console.error('Error fetching videos:', error);
@@ -31,6 +36,17 @@ const Home = () => {
 
   return (
     <div className="home">
+      <div className="category-chips">
+        {categories.map((category) => (
+          <button
+            key={category}
+            className={`chip ${activeCategory === category ? 'active' : ''}`}
+            onClick={() => setActiveCategory(category)}
+          >
+            {category}
+          </button>
+        ))}
+      </div>
       <VideoGrid videos={videos} loading={loading} onVideoDelete={handleVideoDelete} />
     </div>
   );

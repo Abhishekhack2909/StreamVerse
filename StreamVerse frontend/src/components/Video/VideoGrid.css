@@ -1,36 +1,50 @@
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
 }
 
 .empty-state {
+  grid-column: 1 / -1;
   text-align: center;
   padding: 4rem 2rem;
   color: var(--text-secondary);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-color);
+}
+
+.empty-state p {
+  font-size: 1.1rem;
 }
 
 .video-skeleton {
-  animation: pulse 1.5s infinite;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 .skeleton-thumbnail {
   aspect-ratio: 16 / 9;
-  background: var(--bg-tertiary);
-  border-radius: 12px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
 
 .skeleton-info {
   display: flex;
-  gap: 0.75rem;
-  padding: 0.75rem 0;
+  gap: 12px;
+  padding: 14px;
 }
 
 .skeleton-avatar {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: var(--bg-tertiary);
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
 
 .skeleton-text {
@@ -39,29 +53,36 @@
 
 .skeleton-title {
   height: 16px;
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-  margin-bottom: 0.5rem;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
 }
 
 .skeleton-subtitle {
   height: 12px;
   width: 60%;
-  background: var(--bg-tertiary);
-  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@media (max-width: 1200px) {
+  .video-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 640px) {
   .video-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 }

@@ -5,51 +5,62 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
-  //TODO: get all comments for a video
   const { videoId } = req.params;
   const { page = 1, limit = 10 } = req.query;
-  // step 1: validate videoId
-  // step 2: fetch comments from db with pagination
-  // step 3: return response with comments
+  
   const isValid = mongoose.Types.ObjectId.isValid(videoId);
   if (!isValid) {
     throw new ApiError(400, "Invalid videoId");
   }
 
-  // step 2: fetch comments from db with pagination
   const comments = await Comment.find({ videoId: videoId })
+    .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
-    .limit(limit)
-    .populate("commentedBy", "username email");
+    .limit(parseInt(limit))
+    .populate("commentedBy", "username avatar");
 
-  //step 3  return the response
-  res
-    .status(200)
-    .json(new ApiResponse(200, "Comments fetched Succesfully ", comments));
+  // Transform to match frontend expectations
+  const transformedComments = comments.map(comment => ({
+    _id: comment._id,
+    content: comment.text,
+    owner: comment.commentedBy,
+    videoId: comment.videoId,
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+  }));
+
+  res.status(200).json(new ApiResponse(200, transformedComments, "Comments fetched successfully"));
 });
 
 const addComment = asyncHandler(async (req, res) => {
-  // TODO: add a comment to a video
-  // step 1:  get  videoId from req.params
-  //step 2: get comment text from req.body
-  // step 3: get userId from req.user._id (set by verifyJWT middleware)
-  //` step 4: create comment document and save to db
-  // step5: return the response with created comment
-
   const { videoId } = req.params;
-  const { text } = req.body;
+  const { content } = req.body;
   const userId = req.user._id;
-  if (!text || text.trim() === "") {
-    throw new ApiError(400, "comment text cannnot be empty");
+  
+  if (!content || content.trim() === "") {
+    throw new ApiError(400, "Comment text cannot be empty");
   }
+  
   const newComment = await Comment.create({
     videoId: videoId,
-    text: text,
+    text: content,
     commentedBy: userId,
   });
-  res
-    .status(201)
-    .json(new ApiResponse(201, "comment added as successfully", newComment));
+
+  // Populate and transform
+  const populatedComment = await Comment.findById(newComment._id)
+    .populate("commentedBy", "username avatar");
+
+  const response = {
+    _id: populatedComment._id,
+    content: populatedComment.text,
+    owner: populatedComment.commentedBy,
+    videoId: populatedComment.videoId,
+    createdAt: populatedComment.createdAt,
+    updatedAt: populatedComment.updatedAt,
+  };
+
+  res.status(201).json(new ApiResponse(201, response, "Comment added successfully"));
 });
 
 const updateComment = asyncHandler(async (req, res) => {

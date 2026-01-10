@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
+import { FiEdit } from 'react-icons/fi';
 import API from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import VideoGrid from '../../components/Video/VideoGrid';
@@ -50,6 +51,12 @@ const Channel = () => {
     }
   };
 
+  const handleVideoDelete = (videoId) => {
+    setVideos(videos.filter(v => v._id !== videoId));
+  };
+
+  const isOwner = user?.username === channel?.username;
+
   if (loading) {
     return <div className="channel-page loading">Loading...</div>;
   }
@@ -78,7 +85,11 @@ const Channel = () => {
           </div>
         </div>
         
-        {user && user._id !== channel._id && (
+        {isOwner ? (
+          <Link to="/edit-channel" className="edit-channel-btn">
+            <FiEdit /> Edit Channel
+          </Link>
+        ) : user && (
           <button
             className={`subscribe-btn ${subscribed ? 'subscribed' : ''}`}
             onClick={handleSubscribe}
@@ -105,7 +116,7 @@ const Channel = () => {
 
       <div className="channel-content">
         {activeTab === 'videos' && (
-          <VideoGrid videos={videos} loading={false} />
+          <VideoGrid videos={videos} loading={false} onVideoDelete={handleVideoDelete} />
         )}
         {activeTab === 'playlists' && (
           <div className="empty-state">No playlists yet</div>
