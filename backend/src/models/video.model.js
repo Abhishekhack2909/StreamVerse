@@ -8,7 +8,7 @@ const videoSchema = new Schema(
     },
     thumbnail: {
       type: String, // clouinary URL
-      required: true,
+      required: false, // temporarily disabled for debugging
     },
     thumbnailFile: {
       type: String, // clouinary URL

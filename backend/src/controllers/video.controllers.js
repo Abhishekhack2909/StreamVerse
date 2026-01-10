@@ -8,6 +8,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { removefromCloudinary } from "../utils/removeImage.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
+  console.log("=== GET ALL VIDEOS ===");
   const {
     page = 1,
     limit = 10,
@@ -16,7 +17,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     sortType = "desc",
     userId,
   } = req.query;
-  //TODO: get all videos based on query, sort, pagination using aggregation pipeline
+  console.log("Query params:", { page, limit, query, sortBy, sortType, userId });
 
   // Build match stage for filtering
   const matchStage = { isPublished: true };
@@ -93,8 +94,10 @@ const getAllVideos = asyncHandler(async (req, res) => {
   const totalVideos = videos[0]?.totalCount[0]?.count || 0;
   const totalPages = Math.ceil(totalVideos / limitNum);
 
+  console.log("Videos found:", videosList.length, "Total:", totalVideos);
+
   res.status(200).json(
-    new ApiResponse(200, "Videos fetched successfully", {
+    new ApiResponse(200, {
       videos: videosList,
       pagination: {
         currentPage: pageNum,
@@ -103,55 +106,68 @@ const getAllVideos = asyncHandler(async (req, res) => {
         hasNextPage: pageNum < totalPages,
         hasPrevPage: pageNum > 1,
       },
-    })
+    }, "Videos fetched successfully")
   );
 });
 
 const publishAVideo = asyncHandler(async (req, res) => {
+  console.log("=== PUBLISH VIDEO START ===");
   const { title, description } = req.body;
-  // TODO: get video, upload to cloudinary, create video
-  // to get video
-  //  video file : req.files['videoFile'][0]
-  // thumbnail : req.files['thumbnail'][0]
 
-  const videoFile = req.files["videoFile"] ? req.files["videoFile"][0] : null;
-  const thumbnailFile = req.files["thumbnail"]
-    ? req.files["thumbnail"][0]
-    : null;
+  console.log("1. Request body:", { title, description });
+  console.log("2. Files object:", JSON.stringify(req.files, null, 2));
+
+  const videoFile = req.files?.["videoFile"]?.[0] || null;
+  const thumbnailFile = req.files?.["thumbnail"]?.[0] || null;
+
+  console.log("3. Video file:", videoFile ? videoFile.path : "NULL");
+  console.log("4. Thumbnail file:", thumbnailFile ? thumbnailFile.path : "NULL");
+
   if (!videoFile) {
-    throw new ApiError(400, "video file  is required");
+    console.log("ERROR: No video file");
+    return res.status(400).json({ success: false, message: "Video file is required" });
   }
   if (!thumbnailFile) {
-    throw new ApiError(400, "thumbnail file  is required");
+    console.log("ERROR: No thumbnail file");
+    return res.status(400).json({ success: false, message: "Thumbnail file is required" });
   }
-  //now upload these files to cloudinary
-  const uploadedvideo = await uploadOnCloudinary(
-    videoFile.path,
-    "video-uploads"
-  );
-  const uploadthumbnail = await uploadOnCloudinary(
-    thumbnailFile.path,
-    "Video-thumbnails-uploaded"
-  );
 
-  //create the video file in db
+  // Upload video to cloudinary
+  console.log("5. Starting video upload to Cloudinary...");
+  const uploadedvideo = await uploadOnCloudinary(videoFile.path);
+  console.log("6. Video upload result:", uploadedvideo ? "SUCCESS" : "FAILED", uploadedvideo?.secure_url);
 
-  const newVideo = await Video.create({
+  if (!uploadedvideo || !uploadedvideo.secure_url) {
+    console.log("ERROR: Video upload failed");
+    return res.status(500).json({ success: false, message: "Failed to upload video to cloudinary" });
+  }
+
+  // Upload thumbnail to cloudinary
+  console.log("7. Starting thumbnail upload to Cloudinary...");
+  const uploadthumbnail = await uploadOnCloudinary(thumbnailFile.path);
+  console.log("8. Thumbnail upload result:", uploadthumbnail ? "SUCCESS" : "FAILED", uploadthumbnail?.secure_url);
+
+  if (!uploadthumbnail || !uploadthumbnail.secure_url) {
+    console.log("ERROR: Thumbnail upload failed");
+    return res.status(500).json({ success: false, message: "Failed to upload thumbnail to cloudinary" });
+  }
+
+  // Create the video in db
+  console.log("9. Creating video in database...");
+  const videoData = {
     videoFile: uploadedvideo.secure_url,
-    thumbnailFile: uploadthumbnail.secure_url,
+    thumbnail: uploadthumbnail.secure_url,
     title,
     description,
-    duration: uploadedvideo.duration,
-    owner: req.user._id, // from verifyJWT middleware
-  });
-  if (!newVideo) {
-    throw new ApiError(500, "Failed to publish Video");
-  }
+    duration: uploadedvideo.duration || 0,
+    owner: req.user._id,
+  };
+  console.log("10. Video data:", videoData);
 
-  //now return the response
-  res
-    .status(201)
-    .json(new ApiResponse(201, "video published  successfully", newVideo));
+  const newVideo = await Video.create(videoData);
+  console.log("11. Video created:", newVideo._id);
+
+  res.status(201).json(new ApiResponse(201, newVideo, "Video published successfully"));
 });
 //controller to get video by id
 const getVideoById = asyncHandler(async (req, res) => {
@@ -169,7 +185,7 @@ const getVideoById = asyncHandler(async (req, res) => {
   //return response
   res
     .status(200)
-    .json(new ApiResponse(200, "video fetched successfully", video));
+    .json(new ApiResponse(200, video, "video fetched successfully"));
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
@@ -201,13 +217,13 @@ const updateVideo = asyncHandler(async (req, res) => {
 
   if (thumbnailFile) {
     // remove old thumbnail from cloudinary
-    await removefromCloudinary(video.thumbnailFile);
+    await removefromCloudinary(video.thumbnail);
     //upload new thumbnail
     const uploadnewthumbnail = await uploadOnCloudinary(
       thumbnailFile.path,
       "Video-thumbnails-uploaded"
     );
-    video.thumbnailFile = uploadnewthumbnail.secure_url;
+    video.thumbnail = uploadnewthumbnail.secure_url;
   }
   // then save the video
   await video.save();
@@ -230,7 +246,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
   }
   //remove video file and thumbnail from cloudinary
   await removefromCloudinary(video.videoFile);
-  await removefromCloudinary(video.thumbnailFile);
+  await removefromCloudinary(video.thumbnail);
   //delete video from db
   await Video.findByIdAndDelete(videoId);
 

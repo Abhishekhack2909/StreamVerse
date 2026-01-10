@@ -12,8 +12,9 @@ import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router();
 
-// Public route - get all videos
+// Public routes
 router.route("/").get(getAllVideos);
+router.route("/:videoId").get(getVideoById);
 
 // Protected routes
 router.use(verifyJWT);
@@ -28,7 +29,6 @@ router.route("/").post(
 
 router
   .route("/:videoId")
-  .get(getVideoById)
   .delete(deleteVideo)
   .patch(upload.fields([{ name: "thumbnail", maxCount: 1 }]), updateVideo);
 

@@ -1,0 +1,11 @@
+.search-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.search-page h1 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}

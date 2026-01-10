@@ -3,12 +3,13 @@
 //Connect to the database
 //Start the HTTP server
 //It does NOT handle routes, logic, auth, videos, etc.
+import dotenv from 'dotenv'
+dotenv.config({ path: './.env' })
+
 import mongoose from 'mongoose'
 import {DB_NAME} from "./constants.js"
 import connectDB from './db/DB.js'
 import {app} from './app.js'
-import dotenv from 'dotenv'
-dotenv.config({ path: './.env' })
 
 
 connectDB()

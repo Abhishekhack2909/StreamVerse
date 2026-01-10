@@ -5,14 +5,15 @@ import cookieParser from "cookie-parser";
 const app = express();
 app.use(
   cors({
-    // for  use for configuration and middlware.
-    origin: process.env.CORS_ORIGIN,
+    origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use(express.json({ limit: "16kb" })); // limit the file to not to become heavy
+app.use(express.json({ limit: "50mb" })); // increased limit for file uploads
 
-app.use(express.urlencoded({ extended: true, limit: "16kb" })); // making the url encoded  and decoded
+app.use(express.urlencoded({ extended: true, limit: "50mb" })); // increased limit for file uploads
 
 app.use(express.static("public")); // for making  the any asset(like images or fevicon) that is loaded into public file
 
@@ -39,6 +40,22 @@ app.use("/api/v1/tweets", tweetRouter);
 app.use("/api/v1/playlist", playlistRouter);
 app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/api/v1/healthcheck", healthcheckRouter);
+
+// Global error handling middleware
+app.use((err, req, res, next) => {
+  console.error("Error:", err);
+
+  const statusCode = err.statusCode || 500;
+  const message = err.message || "Something went wrong";
+
+  return res.status(statusCode).json({
+    success: false,
+    statusCode,
+    message,
+    errors: err.errors || [],
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+  });
+});
 
 export { app };
 

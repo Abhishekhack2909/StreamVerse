@@ -1,0 +1,139 @@
+.channel-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.channel-page.loading,
+.channel-page.error {
+  text-align: center;
+  padding: 4rem;
+  color: var(--text-secondary);
+}
+
+.channel-banner {
+  height: 200px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.channel-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.channel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.channel-info {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.channel-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.channel-details h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.channel-handle {
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.channel-stats {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.subscribe-btn {
+  padding: 0.75rem 1.5rem;
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.subscribe-btn:hover {
+  opacity: 0.9;
+}
+
+.subscribe-btn.subscribed {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.channel-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+}
+
+.tab {
+  padding: 1rem 1.5rem;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  position: relative;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  color: var(--text-primary);
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--text-primary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .channel-banner {
+    height: 120px;
+  }
+  
+  .channel-header {
+    flex-direction: column;
+  }
+  
+  .channel-avatar {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .channel-details h1 {
+    font-size: 1.25rem;
+  }
+}

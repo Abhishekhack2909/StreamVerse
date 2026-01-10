@@ -45,6 +45,10 @@ const userSchema = new Schema(
     refreshToken: {
       type: String,
     },
+    supabaseId: {
+      type: String,
+      sparse: true, // allows null/undefined values while maintaining uniqueness for non-null values
+    },
   },
   { timestamps: true }
 );

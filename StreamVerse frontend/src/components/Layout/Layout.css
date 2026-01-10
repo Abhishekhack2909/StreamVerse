@@ -1,0 +1,30 @@
+.layout {
+  min-height: 100vh;
+}
+
+.main-content {
+  margin-top: 60px;
+  padding: 1.5rem;
+  min-height: calc(100vh - 60px);
+  transition: margin-left 0.3s ease;
+}
+
+.overlay {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 80;
+}
+
+@media (min-width: 1024px) {
+  .main-content {
+    margin-left: 240px;
+  }
+  
+  .overlay {
+    display: none;
+  }
+}

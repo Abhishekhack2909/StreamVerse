@@ -1,0 +1,10 @@
+.history-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.history-page h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}

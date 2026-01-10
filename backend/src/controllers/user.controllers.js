@@ -544,7 +544,7 @@ export const getUserChannelProfile = asyncHandler(async (req, res) => {
             if: {
               // condition to check if the current user is subscribed to this channel}
               //in operator to check if a value  exists in an array
-              $in: [req.user?._id, "$subscribers.subscriber"], // check if current user's ID is in the subscribers list
+              $in: [req.user?._id || null, "$subscribers.subscriber"], // check if current user's ID is in the subscribers list
             },
             then: true, // if condition is true than set isSubscribed to true
             else: false,
@@ -557,7 +557,8 @@ export const getUserChannelProfile = asyncHandler(async (req, res) => {
       $project: {
         //`project` stage to shape the output documents.
         //1 means include the field, 0 means exclude
-        fullName: 1,
+        _id: 1,
+        fullname: 1,
         username: 1,
         subscribersCount: 1,
         channelSubscribedToCount: 1,
