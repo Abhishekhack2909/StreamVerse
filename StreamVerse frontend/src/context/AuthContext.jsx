@@ -23,9 +23,21 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       return;
     }
+
+    // Handle OAuth callback - check for hash fragment with access token
+    const handleOAuthCallback = async () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        // Remove the hash from URL
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    };
+
+    handleOAuthCallback();
     
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Session check:', session ? 'Found' : 'None');
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserProfile();
@@ -34,7 +46,8 @@ export const AuthProvider = ({ children }) => {
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserProfile();
