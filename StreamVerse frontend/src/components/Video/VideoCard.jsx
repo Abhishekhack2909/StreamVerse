@@ -55,24 +55,28 @@ const VideoCard = ({ video, onDelete }) => {
 
   return (
     <div className="video-card-wrapper">
-      <Link to={`/watch/${video._id}`} className="video-card">
-        <div className="thumbnail-container">
-          <img src={video.thumbnail} alt={video.title} className="thumbnail" />
-          <span className="duration">{formatDuration(video.duration)}</span>
-        </div>
-        <div className="video-info">
-          <div className="channel-avatar">
-            <img src={video.owner?.avatar} alt={video.owner?.username} />
+      <div className="video-card">
+        <Link to={`/watch/${video._id}`} className="thumbnail-link">
+          <div className="thumbnail-container">
+            <img src={video.thumbnail} alt={video.title} className="thumbnail" />
+            <span className="duration">{formatDuration(video.duration)}</span>
           </div>
+        </Link>
+        <div className="video-info">
+          <Link to={`/channel/${video.owner?.username}`} className="channel-avatar" onClick={(e) => e.stopPropagation()}>
+            <img src={video.owner?.avatar} alt={video.owner?.username} />
+          </Link>
           <div className="video-details">
-            <h3 className="video-title">{video.title}</h3>
-            <p className="channel-name">{video.owner?.username}</p>
+            <Link to={`/watch/${video._id}`} className="video-title-link">
+              <h3 className="video-title">{video.title}</h3>
+            </Link>
+            <Link to={`/channel/${video.owner?.username}`} className="channel-name">{video.owner?.username}</Link>
             <p className="video-meta">
               {formatViews(video.views)} views • {formatDistanceToNow(video.createdAt)}
             </p>
           </div>
         </div>
-      </Link>
+      </div>
       
       {isOwner && (
         <div className="video-menu">

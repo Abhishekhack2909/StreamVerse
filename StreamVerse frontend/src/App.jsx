@@ -15,6 +15,11 @@ import History from './pages/History/History';
 import LikedVideos from './pages/LikedVideos/LikedVideos';
 import Subscriptions from './pages/Subscriptions/Subscriptions';
 import Playlists from './pages/Playlists/Playlists';
+import Live from './pages/Live/Live';
+import GoLive from './pages/GoLive/GoLive';
+import LiveStream from './pages/LiveStream/LiveStream';
+import StreamMeetHome from './pages/StreamMeet/StreamMeetHome';
+import StreamMeet from './pages/StreamMeet/StreamMeet';
 import './App.css';
 
 function App() {
@@ -30,11 +35,27 @@ function App() {
             <Route path="channel/:username" element={<Channel />} />
             <Route path="search" element={<Search />} />
             <Route path="trending" element={<Home />} />
+            <Route path="live" element={<Live />} />
+            <Route path="live/:streamId" element={<LiveStream />} />
+            
+            {/* StreamMeet Routes */}
+            <Route path="streammeet" element={<StreamMeetHome />} />
+            <Route path="streammeet/new" element={
+              <ProtectedRoute>
+                <StreamMeet />
+              </ProtectedRoute>
+            } />
+            <Route path="streammeet/:roomId" element={<StreamMeet />} />
             
             {/* Protected Routes */}
             <Route path="upload" element={
               <ProtectedRoute>
                 <Upload />
+              </ProtectedRoute>
+            } />
+            <Route path="go-live" element={
+              <ProtectedRoute>
+                <GoLive />
               </ProtectedRoute>
             } />
             <Route path="edit/:videoId" element={

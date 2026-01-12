@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { FiHome, FiTrendingUp, FiClock, FiThumbsUp, FiList, FiUsers } from 'react-icons/fi';
+import { FiHome, FiTrendingUp, FiClock, FiThumbsUp, FiList, FiUsers, FiRadio, FiVideo } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
 
@@ -16,6 +16,14 @@ const Sidebar = ({ isOpen }) => {
         <NavLink to="/trending" className="nav-item">
           <FiTrendingUp />
           <span>Trending</span>
+        </NavLink>
+        <NavLink to="/live" className="nav-item">
+          <FiRadio />
+          <span>Live</span>
+        </NavLink>
+        <NavLink to="/streammeet" className="nav-item streammeet">
+          <FiVideo />
+          <span>StreamMeet</span>
         </NavLink>
         
         {user && (

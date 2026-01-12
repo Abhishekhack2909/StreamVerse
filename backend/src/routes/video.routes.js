@@ -7,14 +7,14 @@ import {
   deleteVideo,
   togglePublishStatus,
 } from "../controllers/video.controllers.js";
-import { verifyJWT } from "../middlewares/auth.middleware.js";
+import { verifyJWT, optionalAuth } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router();
 
-// Public routes
+// Public routes - with optional auth for personalized data
 router.route("/").get(getAllVideos);
-router.route("/:videoId").get(getVideoById);
+router.route("/:videoId").get(optionalAuth, getVideoById);
 
 // Protected routes
 router.use(verifyJWT);

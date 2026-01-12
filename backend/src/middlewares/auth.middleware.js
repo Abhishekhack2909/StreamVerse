@@ -48,3 +48,31 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
     throw new ApiError(401, error?.message || "Invalid access Token");
   }
 });
+
+// Optional auth - doesn't throw error if no token, just sets req.user if valid
+export const optionalAuth = asyncHandler(async (req, _, next) => {
+  try {
+    const token =
+      req.cookies?.accessToken ||
+      req.header("Authorization")?.replace("Bearer ", "");
+
+    if (!token) {
+      req.user = null;
+      return next();
+    }
+
+    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+
+    if (error || !supabaseUser) {
+      req.user = null;
+      return next();
+    }
+
+    let user = await User.findOne({ email: supabaseUser.email });
+    req.user = user || null;
+    next();
+  } catch (error) {
+    req.user = null;
+    next();
+  }
+});

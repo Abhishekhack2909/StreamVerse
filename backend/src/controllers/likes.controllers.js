@@ -6,102 +6,97 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  //TODO: toggle like on video means if already liked then unlike else like
-  //to make the toggle functionality firts we need to get the userId from req.user._id (set by verifyJWT middleware)
-  // we need to check if a like document already exists for the given videoId and userId
-  // if exists then remove it (unlike) else creat a new like document (like)
-  //return appropriate reponse
-
   const userId = req.user._id;
+  
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video ID");
   }
+  
   const existingLike = await Like.findOne({
-    videoId: videoId,
+    video: videoId,
     likedBy: userId,
   });
+  
+  let isLiked = false;
   if (existingLike) {
-    await Like.deleteOne({ _id: existingLike._id }); //delete the existing like
+    await Like.deleteOne({ _id: existingLike._id });
+    isLiked = false;
   } else {
-    const newLike = await Like.create({
-      videoId: videoId,
+    await Like.create({
+      video: videoId,
       likedBy: userId,
     });
+    isLiked = true;
   }
 
-  // now response
-  res
-    .status(200)
-    .json(new ApiResponse(200, "video is liked or unliked succesfully", null));
+  res.status(200).json(
+    new ApiResponse(200, { isLiked }, "Like toggled successfully")
+  );
 });
 
 const toggleCommentLike = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
-  //TODO: toggle like on comment
   const userId = req.user._id;
   if (!isValidObjectId(commentId)) {
     throw new ApiError(400, "Invalid comment ID");
   }
   const existingLike = await Like.findOne({
-    commentId: commentId,
+    comment: commentId,
     likedBy: userId,
   });
+  
+  let isLiked = false;
   if (existingLike) {
-    await Like.deleteOne({ _id: existingLike._id }); //delete the existing like
+    await Like.deleteOne({ _id: existingLike._id });
+    isLiked = false;
   } else {
-    const newLike = await Like.create({
-      commentId: commentId,
+    await Like.create({
+      comment: commentId,
       likedBy: userId,
     });
+    isLiked = true;
   }
-  // now response
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, "comment is liked or unliked succesfully", null)
-    );
+  
+  res.status(200).json(
+    new ApiResponse(200, { isLiked }, "Comment like toggled successfully")
+  );
 });
 
 const toggleTweetLike = asyncHandler(async (req, res) => {
   const { tweetId } = req.params;
-  //TODO: toggle like on tweet
   const userId = req.user._id;
   if (!isValidObjectId(tweetId)) {
     throw new ApiError(400, "Invalid tweet ID");
   }
   const existingLike = await Like.findOne({
-    tweetId: tweetId,
+    tweet: tweetId,
     likedBy: userId,
   });
+  
+  let isLiked = false;
   if (existingLike) {
-    await Like.deleteOne({ _id: existingLike._id }); //delete the existing like
+    await Like.deleteOne({ _id: existingLike._id });
+    isLiked = false;
   } else {
-    const newLike = await Like.create({
-      tweetId: tweetId,
+    await Like.create({
+      tweet: tweetId,
       likedBy: userId,
     });
+    isLiked = true;
   }
 
-  // now response
-  res
-    .status(200)
-    .json(new ApiResponse(200, "tweet is liked or unliked succesfully", null));
+  res.status(200).json(
+    new ApiResponse(200, { isLiked }, "Tweet like toggled successfully")
+  );
 });
 
 const getLikedVideos = asyncHandler(async (req, res) => {
-  //TODO: get all liked videos at one place
-  // get userId from req.user._id
-  // find all liked videos by the user
-  // return reponse with liked videos
   const userId = req.user._id;
 
-  //we use .populate to get video details along with like document
-  const likedVideos = await Like.find({ likedBy: userId }).populate("videoId");
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, "Liked vidoes fetched Succesfully", likedVideos)
-    );
+  const likedVideos = await Like.find({ likedBy: userId, video: { $exists: true } }).populate("video");
+  res.status(200).json(
+    new ApiResponse(200, likedVideos, "Liked videos fetched successfully")
+  );
 });
 
 export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };

@@ -3,8 +3,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 1.5rem;
-  background: rgba(10, 10, 10, 0.8);
-  backdrop-filter: blur(20px);
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
   position: fixed;
   top: 0;
@@ -37,12 +37,9 @@
 }
 
 .logo {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  background: var(--gradient-1);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
   letter-spacing: -0.5px;
 }
 
@@ -56,7 +53,7 @@
 
 .search-form input {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.7rem 1rem;
   padding-right: 48px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
@@ -67,8 +64,7 @@
 }
 
 .search-form input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--text-muted);
 }
 
 .search-form input::placeholder {
@@ -81,15 +77,16 @@
   top: 50%;
   transform: translateY(-50%);
   padding: 0.5rem 1rem;
-  background: var(--gradient-1);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  color: white;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
 }
 
 .search-form button:hover {
-  opacity: 0.9;
+  background: var(--hover);
 }
 
 .navbar-right {
@@ -104,16 +101,15 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--gradient-1);
+  background: var(--text-primary);
+  color: var(--bg-primary);
   border-radius: var(--radius-lg);
-  color: white;
   font-weight: 500;
   transition: all 0.2s;
 }
 
 .upload-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  opacity: 0.9;
 }
 
 .user-menu {
@@ -132,7 +128,7 @@
 }
 
 .avatar-btn:hover {
-  border-color: var(--accent);
+  border-color: var(--text-muted);
 }
 
 .avatar-btn img {
@@ -187,8 +183,8 @@
 
 .login-btn {
   padding: 0.6rem 1.25rem;
-  background: var(--gradient-1);
-  color: white;
+  background: var(--text-primary);
+  color: var(--bg-primary);
   border-radius: var(--radius-lg);
   font-weight: 500;
   font-size: 0.9rem;
@@ -196,8 +192,7 @@
 }
 
 .login-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  opacity: 0.9;
 }
 
 @media (max-width: 768px) {

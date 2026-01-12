@@ -12,7 +12,7 @@
 
 .channel-banner {
   height: 200px;
-  background: var(--gradient-2);
+  background: var(--bg-tertiary);
   border-radius: var(--radius-xl);
   overflow: hidden;
   margin-bottom: -60px;
@@ -73,8 +73,8 @@
 
 .subscribe-btn {
   padding: 0.75rem 2rem;
-  background: var(--gradient-1);
-  color: white;
+  background: var(--text-primary);
+  color: var(--bg-primary);
   border-radius: var(--radius-xl);
   font-weight: 600;
   font-size: 0.95rem;
@@ -83,8 +83,7 @@
 }
 
 .subscribe-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+  opacity: 0.9;
 }
 
 .subscribe-btn.subscribed {
@@ -94,7 +93,6 @@
 }
 
 .subscribe-btn.subscribed:hover {
-  box-shadow: none;
   background: var(--hover);
 }
 
@@ -114,8 +112,7 @@
 
 .edit-channel-btn:hover {
   background: var(--hover);
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--text-muted);
 }
 
 .channel-tabs {
@@ -143,8 +140,8 @@
 }
 
 .tab.active {
-  color: var(--accent);
-  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
 }
 
 .tab.active::after {
@@ -154,8 +151,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--gradient-1);
-  border-radius: 2px 2px 0 0;
+  background: var(--text-primary);
 }
 
 .channel-content {

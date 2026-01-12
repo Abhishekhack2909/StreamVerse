@@ -3,21 +3,38 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 const app = express();
+
+// CORS configuration for production
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL, // Vercel URL
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      // Allow any vercel.app subdomain
+      if (origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use(express.json({ limit: "50mb" })); // increased limit for file uploads
-
-app.use(express.urlencoded({ extended: true, limit: "50mb" })); // increased limit for file uploads
-
-app.use(express.static("public")); // for making  the any asset(like images or fevicon) that is loaded into public file
-
-app.use(cookieParser()); // for taking cookie info to server or many thing with secure manner
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.static("public"));
+app.use(cookieParser());
 
 //routes import
 import userRouter from "./routes/user.routes.js";
@@ -29,6 +46,7 @@ import tweetRouter from "./routes/tweets.routes.js";
 import playlistRouter from "./routes/playlist.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js";
 import healthcheckRouter from "./routes/healthcheakup.routes.js";
+import streamRouter from "./routes/stream.routes.js";
 
 //routes declaration
 app.use("/api/v1/users", userRouter);
@@ -40,6 +58,7 @@ app.use("/api/v1/tweets", tweetRouter);
 app.use("/api/v1/playlist", playlistRouter);
 app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/api/v1/healthcheck", healthcheckRouter);
+app.use("/api/v1/streams", streamRouter);
 
 // Global error handling middleware
 app.use((err, req, res, next) => {

@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
-import API from "../api/axios";
+import { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import API from '../api/axios';
 
 const AuthContext = createContext(null);
 
@@ -11,39 +11,30 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserProfile = async () => {
     try {
-      const { data } = await API.get("/users/current-user");
+      const { data } = await API.get('/users/current-user');
       setProfile(data.data);
     } catch (error) {
-      console.error("Error fetching user profile:", error);
+      console.error('Error fetching user profile:', error);
     }
   };
 
   useEffect(() => {
     if (!supabase) {
-      console.warn("Supabase not configured - running without auth");
       setLoading(false);
       return;
     }
-
+    
     // Check active sessions and sets the user
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchUserProfile();
-        }
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error getting session:", error);
-        setLoading(false);
-      });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserProfile();
+      }
+      setLoading(false);
+    });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserProfile();
@@ -53,13 +44,15 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    return () => subscription?.unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
   const signInWithGoogle = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
     });
     if (error) throw error;
     return data;
@@ -94,7 +87,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const value = {
-    user: profile || user, // Use profile (MongoDB user) if available
+    user: profile || user,
     supabaseUser: user,
     profile,
     loading,
@@ -107,13 +100,17 @@ export const AuthProvider = ({ children }) => {
     fetchUserProfile,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 };

@@ -13,11 +13,9 @@
   --text-secondary: #a0a0a0;
   --text-muted: #666666;
   --border-color: #252525;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
+  --accent: #ffffff;
+  --accent-hover: #e0e0e0;
   --hover: #1f1f1f;
-  --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  --gradient-2: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
   --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   --radius-sm: 8px;
   --radius-md: 12px;

@@ -16,11 +16,13 @@ const Comments = ({ videoId }) => {
 
   const fetchComments = async () => {
     try {
+      console.log('Fetching comments for video:', videoId);
       const { data } = await API.get(`/comments/${videoId}`);
+      console.log('Comments response:', data);
       const commentsList = data.data?.comments || data.data?.docs || data.data || [];
       setComments(Array.isArray(commentsList) ? commentsList : []);
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      console.error('Error fetching comments:', error.response?.data || error);
       setComments([]);
     } finally {
       setLoading(false);
@@ -32,13 +34,15 @@ const Comments = ({ videoId }) => {
     if (!newComment.trim() || !user) return;
 
     try {
+      console.log('Posting comment:', { videoId, content: newComment });
       const { data } = await API.post(`/comments/${videoId}`, {
         content: newComment,
       });
+      console.log('Comment response:', data);
       setComments([data.data, ...comments]);
       setNewComment('');
     } catch (error) {
-      console.error('Error posting comment:', error);
+      console.error('Error posting comment:', error.response?.data || error);
     }
   };
 

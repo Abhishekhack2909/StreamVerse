@@ -18,8 +18,11 @@
 }
 
 .video-card:hover {
-  border-color: var(--accent);
-  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
+  border-color: var(--text-muted);
+}
+
+.video-card .thumbnail-link {
+  display: block;
 }
 
 .video-card .thumbnail-container {
@@ -37,7 +40,7 @@
 }
 
 .video-card:hover .thumbnail-container img.thumbnail {
-  transform: scale(1.05);
+  transform: scale(1.03);
 }
 
 .video-card .thumbnail-container .duration {
@@ -50,7 +53,6 @@
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 600;
-  backdrop-filter: blur(4px);
 }
 
 .video-card .video-info {
@@ -60,6 +62,7 @@
 }
 
 .video-card .video-info .channel-avatar {
+  display: block;
   width: 40px;
   height: 40px;
   min-width: 40px;
@@ -69,8 +72,8 @@
   transition: border-color 0.2s;
 }
 
-.video-card:hover .video-info .channel-avatar {
-  border-color: var(--accent);
+.video-card .video-info .channel-avatar:hover {
+  border-color: var(--text-muted);
 }
 
 .video-card .video-info .channel-avatar img {
@@ -82,6 +85,11 @@
 .video-card .video-info .video-details {
   flex: 1;
   min-width: 0;
+}
+
+.video-card .video-info .video-details .video-title-link {
+  display: block;
+  text-decoration: none;
 }
 
 .video-card .video-info .video-details .video-title {
@@ -97,14 +105,15 @@
 }
 
 .video-card .video-info .video-details .channel-name {
+  display: block;
   font-size: 13px;
   color: var(--text-secondary);
   margin: 0 0 4px 0;
-  transition: color 0.2s;
+  text-decoration: none;
 }
 
-.video-card:hover .video-info .video-details .channel-name {
-  color: var(--accent);
+.video-card .video-info .video-details .channel-name:hover {
+  color: var(--text-primary);
 }
 
 .video-card .video-info .video-details .video-meta {
@@ -123,7 +132,6 @@
 
 .video-menu .menu-btn {
   background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
   color: white;
   border: none;
   border-radius: 50%;
@@ -142,7 +150,7 @@
 }
 
 .video-menu .menu-btn:hover {
-  background: var(--accent);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .menu-dropdown {
@@ -155,12 +163,6 @@
   overflow: hidden;
   min-width: 140px;
   box-shadow: var(--shadow);
-  animation: dropdownFade 0.2s ease;
-}
-
-@keyframes dropdownFade {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 .menu-dropdown button {
@@ -180,7 +182,6 @@
 
 .menu-dropdown button:hover {
   background: var(--hover);
-  color: var(--accent);
 }
 
 .menu-dropdown .delete-btn {
@@ -189,5 +190,4 @@
 
 .menu-dropdown .delete-btn:hover {
   background: rgba(248, 113, 113, 0.1);
-  color: #f87171;
 }
