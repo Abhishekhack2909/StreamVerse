@@ -12,10 +12,7 @@
 .hero-section h1 {
   font-size: 3rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
   margin-bottom: 1rem;
 }
 
@@ -58,13 +55,13 @@
 }
 
 .action-card.meet .card-icon {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  color: white;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .action-card.stream .card-icon {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .action-card h2 {
@@ -91,21 +88,21 @@
 }
 
 .action-card.meet .card-btn {
-  background: #22c55e;
-  color: white;
+  background: var(--text-primary);
+  color: var(--bg-primary);
 }
 
 .action-card.meet .card-btn:hover {
-  background: #16a34a;
+  opacity: 0.9;
 }
 
 .action-card.stream .card-btn {
-  background: #ef4444;
-  color: white;
+  background: var(--text-primary);
+  color: var(--bg-primary);
 }
 
 .action-card.stream .card-btn:hover {
-  background: #dc2626;
+  opacity: 0.9;
 }
 
 /* Join Section */
