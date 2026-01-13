@@ -231,8 +231,10 @@ export const getRoomById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Room not found");
   }
 
+  // If room has ended, return the info but with a flag
+  // This allows the frontend to show appropriate message
   if (!room.isLive) {
-    throw new ApiError(400, "This room has ended");
+    return res.status(200).json(new ApiResponse(200, { ...room.toObject(), hasEnded: true }, "This room has ended"));
   }
 
   res.status(200).json(new ApiResponse(200, room, "Room fetched successfully"));

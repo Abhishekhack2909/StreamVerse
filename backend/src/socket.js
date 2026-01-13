@@ -182,6 +182,9 @@ const initSocketServer = (httpServer) => {
   async function handleLeaveRoom(socket, roomId, oderId) {
     const room = rooms.get(roomId);
     if (room && room.participants.has(oderId)) {
+      const leavingParticipant = room.participants.get(oderId);
+      const wasHost = leavingParticipant?.isHost;
+      
       room.participants.delete(oderId);
       socket.leave(roomId);
       try { await Stream.findByIdAndUpdate(roomId, { $inc: { viewers: -1 } }); } catch (e) {}
@@ -189,7 +192,12 @@ const initSocketServer = (httpServer) => {
       const participantsList = Array.from(room.participants.values());
       io.to(roomId).emit("user-left", { oderId, participants: participantsList });
       
-      if (room.participants.size === 0) {
+      // Only end the room if the host left or no participants remain
+      if (wasHost || room.participants.size === 0) {
+        // If host left, notify everyone and end the room
+        if (wasHost && room.participants.size > 0) {
+          io.to(roomId).emit("room-ended");
+        }
         rooms.delete(roomId);
         try { await Stream.findByIdAndUpdate(roomId, { isLive: false, endedAt: new Date() }); } catch (e) {}
       }

@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { 
   FiVideo, FiVideoOff, FiMic, FiMicOff, FiMonitor, 
   FiPhoneOff, FiUsers, FiMessageSquare, FiCopy, FiCheck,
-  FiMoreVertical, FiMaximize, FiMinimize, FiSettings
+  FiMaximize, FiMinimize
 } from 'react-icons/fi';
 import { socket, connectSocket } from '../../lib/socket';
 import API from '../../api/axios';
@@ -297,9 +297,18 @@ const StreamMeet = () => {
     if (!roomId) return;
 
     setIsLoading(true);
+    setError('');
     try {
       const { data } = await API.get(`/streams/room/${roomId}`);
       console.log('Joining room:', data.data);
+      
+      // Check if room has ended
+      if (data.data.hasEnded || !data.data.isLive) {
+        setError('This meeting has ended');
+        setIsLoading(false);
+        return;
+      }
+      
       setRoomData(data.data);
       setIsJoined(true);
       setIsHost(data.data.streamer?._id === user?._id);
