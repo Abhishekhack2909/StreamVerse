@@ -38,10 +38,12 @@ const Login = () => {
     setError('');
     setLoading(true);
     try {
+      console.log("Attempting Google login...");
       await signInWithGoogle();
       // Redirect happens automatically via Supabase OAuth
     } catch (err) {
-      setError(err.message || 'Google login failed');
+      console.error("Google login error:", err);
+      setError(err.message || 'Google login failed. Please check if authentication is configured.');
       setLoading(false);
     }
   };

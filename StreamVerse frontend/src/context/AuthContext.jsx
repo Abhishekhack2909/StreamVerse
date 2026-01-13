@@ -61,12 +61,22 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signInWithGoogle = async () => {
+    if (!supabase) {
+      console.error("Supabase client not initialized");
+      throw new Error("Authentication service not available. Please check configuration.");
+    }
+    
+    console.log("Starting Google OAuth, redirectTo:", window.location.origin);
+    
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
       },
     });
+    
+    console.log("OAuth response:", { data, error });
+    
     if (error) throw error;
     return data;
   };
