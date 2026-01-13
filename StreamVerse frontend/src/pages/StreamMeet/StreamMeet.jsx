@@ -288,11 +288,17 @@ const StreamMeet = () => {
         delete peerConnections.current[oderId];
       }
 
+      // Clean up remote stream
       setRemoteStreams((prev) => {
         const newStreams = { ...prev };
         delete newStreams[oderId];
         return newStreams;
       });
+      
+      // Also clean up any pending candidates
+      if (pendingCandidates.current[oderId]) {
+        delete pendingCandidates.current[oderId];
+      }
     };
 
     const handleOfferReceived = async ({ offer, senderId }) => {
@@ -623,6 +629,37 @@ const StreamMeet = () => {
     };
   }, [roomId, user]);
 
+  // Cleanup stale remote streams when participants change
+  useEffect(() => {
+    if (!isJoined) return;
+    
+    // Get list of valid participant IDs (excluding self)
+    const validParticipantIds = participants
+      .filter(p => p.oderId !== user._id)
+      .map(p => p.oderId);
+    
+    // Remove remote streams for participants who are no longer in the list
+    setRemoteStreams(prev => {
+      const newStreams = { ...prev };
+      let changed = false;
+      
+      Object.keys(newStreams).forEach(oderId => {
+        if (!validParticipantIds.includes(oderId)) {
+          delete newStreams[oderId];
+          changed = true;
+          
+          // Also close the peer connection
+          if (peerConnections.current[oderId]) {
+            peerConnections.current[oderId].close();
+            delete peerConnections.current[oderId];
+          }
+        }
+      });
+      
+      return changed ? newStreams : prev;
+    });
+  }, [participants, isJoined, user]);
+
   // Show loading while checking auth
   if (authLoading) {
     return (
@@ -641,7 +678,14 @@ const StreamMeet = () => {
   }
 
   const participantCount = participants.length || 1;
-  const remoteStreamEntries = Object.entries(remoteStreams);
+  
+  // Filter remote streams to only show those with matching participants
+  // This prevents ghost participants from appearing
+  const validRemoteStreams = Object.entries(remoteStreams).filter(([oderId]) => {
+    const hasParticipant = participants.some(p => p.oderId === oderId);
+    const isNotMe = oderId !== user._id;
+    return hasParticipant && isNotMe;
+  });
 
   // Setup screen (before joining)
   if (!isJoined) {
@@ -787,7 +831,7 @@ const StreamMeet = () => {
         >
           {/* Local video */}
           <div
-            className={`meet-video-tile ${remoteStreamEntries.length === 0 ? "solo" : ""}`}
+            className={`meet-video-tile ${validRemoteStreams.length === 0 ? "solo" : ""}`}
           >
             <video ref={localVideoRef} autoPlay muted playsInline />
             {!videoEnabled && (
@@ -806,9 +850,10 @@ const StreamMeet = () => {
             </div>
           </div>
 
-          {/* Remote videos */}
-          {remoteStreamEntries.map(([oderId, stream]) => {
+          {/* Remote videos - only show valid participants */}
+          {validRemoteStreams.map(([oderId, stream]) => {
             const participant = participants.find((p) => p.oderId === oderId);
+            if (!participant) return null;
             return (
               <RemoteVideo
                 key={oderId}
@@ -971,21 +1016,37 @@ const StreamMeet = () => {
 // Remote video component
 const RemoteVideo = ({ stream, participant }) => {
   const videoRef = useRef(null);
+  const [hasVideo, setHasVideo] = useState(true);
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
+      
+      // Check if video track is enabled
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        setHasVideo(videoTrack.enabled);
+        videoTrack.onmute = () => setHasVideo(false);
+        videoTrack.onunmute = () => setHasVideo(true);
+      }
     }
   }, [stream]);
 
+  const username = participant?.username || 'Participant';
+  const isHost = participant?.isHost;
+
   return (
     <div className="meet-video-tile">
-      <video ref={videoRef} autoPlay playsInline />
+      <video ref={videoRef} autoPlay playsInline style={{ display: hasVideo ? 'block' : 'none' }} />
+      {!hasVideo && (
+        <div className="video-off-overlay">
+          <div className="avatar-circle large">
+            {username.charAt(0).toUpperCase()}
+          </div>
+        </div>
+      )}
       <div className="tile-label">
-        <span>
-          {participant?.username || "Participant"}{" "}
-          {participant?.isHost && "(Host)"}
-        </span>
+        <span>{username} {isHost && "(Host)"}</span>
       </div>
     </div>
   );
