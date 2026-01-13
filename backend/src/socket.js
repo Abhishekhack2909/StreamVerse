@@ -61,8 +61,9 @@ const initSocketServer = (httpServer) => {
 
     // ROOM EVENTS (StreamMeet)
     socket.on("join-room", async (data) => {
-      const { roomId, username, isHost } = data;
+      const { roomId, isHost } = data;
       const oderId = data.oderId || socket.id;
+      const username = data.username || 'Unknown User';
       
       console.log(`User ${username} (${oderId}) joining room ${roomId}`);
       
@@ -71,7 +72,20 @@ const initSocketServer = (httpServer) => {
       }
       
       const room = rooms.get(roomId);
-      room.participants.set(oderId, { socketId: socket.id, username: username || 'Guest', isHost: !!isHost, oderId });
+      
+      // Remove any existing entry for this user (in case of reconnection)
+      room.participants.forEach((value, key) => {
+        if (key === oderId || value.socketId === socket.id) {
+          room.participants.delete(key);
+        }
+      });
+      
+      room.participants.set(oderId, { 
+        socketId: socket.id, 
+        username: username, 
+        isHost: !!isHost, 
+        oderId 
+      });
       
       socket.join(roomId);
       socket.roomId = roomId;

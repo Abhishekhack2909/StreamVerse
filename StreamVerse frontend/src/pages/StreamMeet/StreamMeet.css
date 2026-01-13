@@ -218,6 +218,56 @@
   background: rgba(138, 180, 248, 0.1);
 }
 
+/* Meeting Link Box */
+.meeting-link-box {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.meeting-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.link-text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+  font-family: monospace;
+}
+
+.copy-link-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #8ab4f8;
+  color: #202124;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.copy-link-btn:hover {
+  background: #aecbfa;
+}
+
+.link-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  text-align: center;
+}
+
 /* ===== ROOM VIEW ===== */
 .meet-room {
   height: calc(100vh - 64px);

@@ -64,6 +64,10 @@ const StreamMeet = () => {
   const [isHost, setIsHost] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
 
+  // State for pre-created room
+  const [preCreatedRoom, setPreCreatedRoom] = useState(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
   // Check if user needs to login
   useEffect(() => {
     if (!authLoading && !user && roomId && roomId !== "new") {
@@ -363,17 +367,10 @@ const StreamMeet = () => {
     navigate("/streammeet");
   }, [navigate]);
 
-  // Create room
-  const createRoom = async () => {
-    if (!title.trim() && mode === "stream") {
-      setError("Please enter a title");
-      return;
-    }
+  // Pre-create room to get meeting link (like Google Meet)
+  const preCreateRoom = async () => {
     if (!user) {
-      sessionStorage.setItem(
-        "redirectAfterLogin",
-        "/streammeet/new?mode=" + mode,
-      );
+      sessionStorage.setItem("redirectAfterLogin", "/streammeet/new?mode=" + mode);
       navigate("/login");
       return;
     }
@@ -381,9 +378,58 @@ const StreamMeet = () => {
     setIsLoading(true);
     try {
       const { data } = await API.post("/streams/room", {
-        title:
-          title ||
-          `${user.username}'s ${mode === "meet" ? "Meeting" : "Stream"}`,
+        title: title || `${user.username}'s ${mode === "meet" ? "Meeting" : "Stream"}`,
+        mode,
+      });
+
+      console.log("Room pre-created:", data.data);
+      setPreCreatedRoom(data.data);
+      window.history.replaceState(null, "", `/streammeet/${data.data._id}?mode=${mode}`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to create room");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Actually join the pre-created room
+  const joinPreCreatedRoom = () => {
+    if (!preCreatedRoom || !user) return;
+
+    setRoomData(preCreatedRoom);
+    setIsJoined(true);
+    setIsHost(true);
+
+    socket.emit("join-room", {
+      roomId: preCreatedRoom._id,
+      oderId: user._id,
+      username: user.username,
+      isHost: true,
+    });
+  };
+
+  // Create room
+  const createRoom = async () => {
+    if (!title.trim() && mode === "stream") {
+      setError("Please enter a title");
+      return;
+    }
+    if (!user) {
+      sessionStorage.setItem("redirectAfterLogin", "/streammeet/new?mode=" + mode);
+      navigate("/login");
+      return;
+    }
+
+    // If we already pre-created a room, just join it
+    if (preCreatedRoom) {
+      joinPreCreatedRoom();
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data } = await API.post("/streams/room", {
+        title: title || `${user.username}'s ${mode === "meet" ? "Meeting" : "Stream"}`,
         mode,
       });
 
@@ -399,16 +445,21 @@ const StreamMeet = () => {
         isHost: true,
       });
 
-      window.history.replaceState(
-        null,
-        "",
-        `/streammeet/${data.data._id}?mode=${mode}`,
-      );
+      window.history.replaceState(null, "", `/streammeet/${data.data._id}?mode=${mode}`);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to create room");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Copy pre-created room link
+  const copyPreCreatedLink = () => {
+    if (!preCreatedRoom) return;
+    const link = `${window.location.origin}/streammeet/${preCreatedRoom._id}`;
+    navigator.clipboard.writeText(link);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   };
 
   // Join existing room
@@ -635,11 +686,7 @@ const StreamMeet = () => {
                 className={`preview-btn ${!videoEnabled ? "off" : ""}`}
                 disabled={!setupComplete}
               >
-                {videoEnabled ? (
-                  <FiVideo size={20} />
-                ) : (
-                  <FiVideoOff size={20} />
-                )}
+                {videoEnabled ? <FiVideo size={20} /> : <FiVideoOff size={20} />}
               </button>
             </div>
           </div>
@@ -648,15 +695,36 @@ const StreamMeet = () => {
             <h1>
               {roomId && roomId !== "new"
                 ? "Ready to join?"
-                : "Start a meeting"}
+                : preCreatedRoom
+                  ? "Your meeting is ready"
+                  : "Start a meeting"}
             </h1>
             <p className="meet-subtitle">
               {roomId && roomId !== "new"
                 ? "Choose your audio and video settings"
-                : "Create a new meeting room"}
+                : preCreatedRoom
+                  ? "Share this link with others you want in the meeting"
+                  : "Create a new meeting room"}
             </p>
 
-            {mode === "stream" && (!roomId || roomId === "new") && (
+            {/* Show meeting link if pre-created */}
+            {preCreatedRoom && (
+              <div className="meeting-link-box">
+                <div className="meeting-link">
+                  <span className="link-text">
+                    {window.location.origin}/streammeet/{preCreatedRoom._id}
+                  </span>
+                  <button onClick={copyPreCreatedLink} className="copy-link-btn">
+                    {linkCopied ? <FiCheck size={18} /> : <FiCopy size={18} />}
+                  </button>
+                </div>
+                <p className="link-hint">
+                  {linkCopied ? "Link copied!" : "Click to copy meeting link"}
+                </p>
+              </div>
+            )}
+
+            {mode === "stream" && (!roomId || roomId === "new") && !preCreatedRoom && (
               <input
                 type="text"
                 placeholder="Enter stream title"
@@ -669,17 +737,34 @@ const StreamMeet = () => {
             {error && <div className="meet-error">{error}</div>}
 
             <div className="meet-actions">
-              <button
-                onClick={roomId && roomId !== "new" ? joinRoom : createRoom}
-                className="meet-join-btn"
-                disabled={!setupComplete || isLoading}
-              >
-                {isLoading
-                  ? "Please wait..."
-                  : roomId && roomId !== "new"
-                    ? "Join now"
-                    : "Start meeting"}
-              </button>
+              {/* Show different buttons based on state */}
+              {!roomId || roomId === "new" ? (
+                preCreatedRoom ? (
+                  <button
+                    onClick={joinPreCreatedRoom}
+                    className="meet-join-btn"
+                    disabled={!setupComplete || isLoading}
+                  >
+                    Join now
+                  </button>
+                ) : (
+                  <button
+                    onClick={preCreateRoom}
+                    className="meet-join-btn"
+                    disabled={!setupComplete || isLoading}
+                  >
+                    {isLoading ? "Creating..." : "Create meeting"}
+                  </button>
+                )
+              ) : (
+                <button
+                  onClick={joinRoom}
+                  className="meet-join-btn"
+                  disabled={!setupComplete || isLoading}
+                >
+                  {isLoading ? "Please wait..." : "Join now"}
+                </button>
+              )}
               <button
                 onClick={() => navigate("/streammeet")}
                 className="meet-back-btn"
