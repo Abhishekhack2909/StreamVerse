@@ -43,11 +43,6 @@ const StreamMeet = () => {
   const pendingCandidates = useRef({});
   const roomDataRef = useRef(null);
 
-  // Keep roomDataRef in sync
-  useEffect(() => {
-    roomDataRef.current = roomData;
-  }, [roomData]);
-
   // State
   const [isJoined, setIsJoined] = useState(false);
   const [roomData, setRoomData] = useState(null);
@@ -73,6 +68,11 @@ const StreamMeet = () => {
   // State for pre-created room
   const [preCreatedRoom, setPreCreatedRoom] = useState(null);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Keep roomDataRef in sync
+  useEffect(() => {
+    roomDataRef.current = roomData;
+  }, [roomData]);
 
   // Check if user needs to login
   useEffect(() => {
