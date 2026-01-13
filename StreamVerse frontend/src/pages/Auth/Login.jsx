@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Auth.css';
 
@@ -11,13 +11,17 @@ const Login = () => {
   
   const { signInWithEmail, signInWithGoogle, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the redirect URL from state or default to home
+  const from = location.state?.from || '/';
 
   // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      navigate('/');
+      navigate(from, { replace: true });
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, from]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +30,7 @@ const Login = () => {
 
     try {
       await signInWithEmail(email, password);
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
@@ -38,7 +42,11 @@ const Login = () => {
     setError('');
     setLoading(true);
     try {
-      console.log("Attempting Google login...");
+      // Save the redirect URL in sessionStorage before OAuth redirect
+      if (from && from !== '/') {
+        sessionStorage.setItem('redirectAfterLogin', from);
+      }
+      console.log("Attempting Google login, will redirect to:", from);
       await signInWithGoogle();
       // Redirect happens automatically via Supabase OAuth
     } catch (err) {

@@ -49,6 +49,16 @@ export const AuthProvider = ({ children }) => {
               console.error('Error setting session:', error);
             } else {
               console.log('Session set successfully:', data.user?.email);
+              
+              // Check if there's a redirect URL saved
+              const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+              if (redirectUrl) {
+                sessionStorage.removeItem('redirectAfterLogin');
+                // Clean up the URL first, then redirect
+                window.history.replaceState(null, '', window.location.pathname);
+                window.location.href = redirectUrl;
+                return;
+              }
             }
           }
           
