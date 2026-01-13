@@ -682,21 +682,46 @@
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 900px) {
+  .meet-setup {
+    padding: 1rem;
+    min-height: calc(100vh - 56px);
+  }
+
   .meet-setup-container {
     flex-direction: column;
-    gap: 2rem;
+    gap: 1.5rem;
+  }
+
+  .meet-preview-section {
+    width: 100%;
   }
 
   .meet-join-section {
     flex: none;
     width: 100%;
-    max-width: 400px;
+    max-width: 100%;
+  }
+
+  .meet-join-section h1 {
+    font-size: 1.5rem;
+  }
+
+  .meet-video-grid {
+    padding: 8px;
+  }
+
+  .meet-video-grid.grid-1 {
+    grid-template-columns: 1fr;
   }
 
   .meet-video-grid.grid-2,
   .meet-video-grid.grid-3,
   .meet-video-grid.grid-4 {
     grid-template-columns: 1fr;
+  }
+
+  .meet-video-tile {
+    min-height: 150px;
   }
 
   .meet-sidebar {
@@ -706,7 +731,7 @@
     bottom: 0;
     z-index: 100;
     width: 100%;
-    max-width: 360px;
+    max-width: 100%;
   }
 
   .controls-info {
@@ -714,7 +739,22 @@
   }
 
   .meet-controls {
-    padding: 12px 16px;
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .controls-main {
+    gap: 8px;
+    order: 1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .controls-extra {
+    order: 2;
+    width: 100%;
+    justify-content: center;
   }
 
   .ctrl-btn {
@@ -724,20 +764,128 @@
 
   .ctrl-btn-sm {
     padding: 0 12px;
+    height: 40px;
   }
 
   .ctrl-btn-sm span {
     display: none;
   }
+
+  .avatar-circle {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+
+  .avatar-circle.large {
+    width: 70px;
+    height: 70px;
+    font-size: 28px;
+  }
 }
 
 @media (max-width: 480px) {
+  .meet-setup {
+    padding: 0.75rem;
+  }
+
+  .meet-setup-container {
+    gap: 1rem;
+  }
+
+  .meet-preview {
+    border-radius: 8px;
+  }
+
+  .preview-controls {
+    gap: 0.75rem;
+  }
+
+  .preview-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .meet-join-section h1 {
+    font-size: 1.25rem;
+  }
+
+  .meet-subtitle {
+    font-size: 0.85rem;
+  }
+
+  .meet-input {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .meet-join-btn {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  .meeting-link-box {
+    padding: 0.75rem;
+  }
+
+  .link-text {
+    font-size: 11px;
+  }
+
+  .meet-room {
+    height: calc(100vh - 56px);
+  }
+
+  .meet-controls {
+    padding: 8px;
+  }
+
+  .controls-main {
+    gap: 6px;
+  }
+
   .controls-extra {
     gap: 4px;
   }
 
-  .ctrl-btn-sm {
-    padding: 0 10px;
+  .ctrl-btn {
+    width: 40px;
     height: 40px;
+  }
+
+  .ctrl-btn-sm {
+    padding: 0 8px;
+    height: 36px;
+  }
+
+  .chat-form {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .chat-form input {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .chat-form button {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .sidebar-header {
+    padding: 12px 16px;
+  }
+
+  .avatar-circle {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+
+  .avatar-circle.large {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
   }
 }
