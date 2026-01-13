@@ -648,22 +648,20 @@ const StreamMeet = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Initialize on mount
+  // Initialize on mount - only initialize media, don't auto-join
   useEffect(() => {
     if (!user) return;
 
-    initializeMedia().then((stream) => {
-      if (stream && roomId && roomId !== "new") {
-        joinRoom();
-      }
-    });
+    // Only initialize media, don't auto-join the room
+    // User must click "Join now" button to join
+    initializeMedia();
 
     return () => {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [roomId, user]);
+  }, [user, initializeMedia]);
 
   // Cleanup stale remote streams when participants change
   useEffect(() => {
@@ -1063,18 +1061,24 @@ const StreamMeet = () => {
 // Remote video component
 const RemoteVideo = ({ stream, participant }) => {
   const videoRef = useRef(null);
-  const [hasVideo, setHasVideo] = useState(true);
+  const [showVideo, setShowVideo] = useState(true);
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
 
-      // Check if video track is enabled
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack) {
-        setHasVideo(videoTrack.enabled);
-        videoTrack.onmute = () => setHasVideo(false);
-        videoTrack.onunmute = () => setHasVideo(true);
+      // Check video tracks
+      const videoTracks = stream.getVideoTracks();
+      if (videoTracks.length > 0) {
+        const videoTrack = videoTracks[0];
+        setShowVideo(videoTrack.enabled && !videoTrack.muted);
+
+        // Listen for track state changes
+        videoTrack.onmute = () => setShowVideo(false);
+        videoTrack.onunmute = () => setShowVideo(true);
+        videoTrack.onended = () => setShowVideo(false);
+      } else {
+        setShowVideo(false);
       }
     }
   }, [stream]);
@@ -1084,13 +1088,8 @@ const RemoteVideo = ({ stream, participant }) => {
 
   return (
     <div className="meet-video-tile">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        style={{ display: hasVideo ? "block" : "none" }}
-      />
-      {!hasVideo && (
+      <video ref={videoRef} autoPlay playsInline />
+      {!showVideo && (
         <div className="video-off-overlay">
           <div className="avatar-circle large">
             {username.charAt(0).toUpperCase()}
