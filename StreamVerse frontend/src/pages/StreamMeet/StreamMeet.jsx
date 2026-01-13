@@ -41,6 +41,12 @@ const StreamMeet = () => {
   const screenStreamRef = useRef(null);
   const peerConnections = useRef({});
   const pendingCandidates = useRef({});
+  const roomDataRef = useRef(null);
+
+  // Keep roomDataRef in sync
+  useEffect(() => {
+    roomDataRef.current = roomData;
+  }, [roomData]);
 
   // State
   const [isJoined, setIsJoined] = useState(false);
@@ -113,75 +119,74 @@ const StreamMeet = () => {
   }, []);
 
   // Create peer connection for a specific user
-  const createPeerConnection = useCallback(
-    (oderId) => {
-      if (peerConnections.current[oderId]) {
-        return peerConnections.current[oderId];
-      }
+  const createPeerConnection = useCallback((oderId) => {
+    if (peerConnections.current[oderId]) {
+      return peerConnections.current[oderId];
+    }
 
-      console.log("Creating peer connection for:", oderId);
-      const pc = new RTCPeerConnection(ICE_SERVERS);
-      peerConnections.current[oderId] = pc;
+    console.log("Creating peer connection for:", oderId);
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    peerConnections.current[oderId] = pc;
 
-      // Add local tracks
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => {
-          console.log("Adding track to peer connection:", track.kind);
-          pc.addTrack(track, localStreamRef.current);
+    // Add local tracks
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => {
+        console.log("Adding track to peer connection:", track.kind);
+        pc.addTrack(track, localStreamRef.current);
+      });
+    }
+
+    // Handle incoming tracks
+    pc.ontrack = (event) => {
+      console.log("Received remote track from:", oderId, event.track.kind);
+      setRemoteStreams((prev) => ({ ...prev, [oderId]: event.streams[0] }));
+    };
+
+    // Handle ICE candidates
+    pc.onicecandidate = (event) => {
+      if (event.candidate && roomDataRef.current) {
+        console.log("Sending ICE candidate to:", oderId);
+        socket.emit("ice-candidate", {
+          candidate: event.candidate,
+          targetId: oderId,
+          roomId: roomDataRef.current._id,
         });
       }
+    };
 
-      // Handle incoming tracks
-      pc.ontrack = (event) => {
-        console.log("Received remote track from:", oderId, event.track.kind);
-        setRemoteStreams((prev) => ({ ...prev, [oderId]: event.streams[0] }));
-      };
-
-      // Handle ICE candidates
-      pc.onicecandidate = (event) => {
-        if (event.candidate && roomData) {
-          console.log("Sending ICE candidate to:", oderId);
-          socket.emit("ice-candidate", {
-            candidate: event.candidate,
-            targetId: oderId,
-            roomId: roomData._id,
-          });
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        console.log(
-          "ICE connection state for",
-          oderId,
-          ":",
-          pc.iceConnectionState,
-        );
-        if (
-          pc.iceConnectionState === "failed" ||
-          pc.iceConnectionState === "disconnected"
-        ) {
-          console.log("Connection failed/disconnected, attempting restart");
-        }
-      };
-
-      // Process any pending ICE candidates
-      if (pendingCandidates.current[oderId]) {
-        pendingCandidates.current[oderId].forEach((candidate) => {
-          pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(
-            console.error,
-          );
-        });
-        delete pendingCandidates.current[oderId];
+    pc.oniceconnectionstatechange = () => {
+      console.log(
+        "ICE connection state for",
+        oderId,
+        ":",
+        pc.iceConnectionState,
+      );
+      if (
+        pc.iceConnectionState === "failed" ||
+        pc.iceConnectionState === "disconnected"
+      ) {
+        console.log("Connection failed/disconnected for:", oderId);
       }
+    };
 
-      return pc;
-    },
-    [roomData],
-  );
+    // Process any pending ICE candidates
+    if (pendingCandidates.current[oderId]) {
+      pendingCandidates.current[oderId].forEach((candidate) => {
+        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
+      });
+      delete pendingCandidates.current[oderId];
+    }
+
+    return pc;
+  }, []);
 
   // Send offer to a peer
   const sendOffer = useCallback(
     async (oderId) => {
+      if (!roomDataRef.current) {
+        console.log("Cannot send offer, roomData not set yet");
+        return;
+      }
       const pc = createPeerConnection(oderId);
       try {
         const offer = await pc.createOffer();
@@ -190,19 +195,23 @@ const StreamMeet = () => {
         socket.emit("offer", {
           offer: pc.localDescription,
           targetId: oderId,
-          roomId: roomData._id,
+          roomId: roomDataRef.current._id,
         });
       } catch (err) {
         console.error("Error creating offer:", err);
       }
     },
-    [createPeerConnection, roomData],
+    [createPeerConnection],
   );
 
   // Handle received offer
   const handleOffer = useCallback(
     async (offer, senderId) => {
       console.log("Handling offer from:", senderId);
+      if (!roomDataRef.current) {
+        console.log("Cannot handle offer, roomData not set yet");
+        return;
+      }
       const pc = createPeerConnection(senderId);
 
       try {
@@ -214,13 +223,13 @@ const StreamMeet = () => {
         socket.emit("answer", {
           answer: pc.localDescription,
           targetId: senderId,
-          roomId: roomData._id,
+          roomId: roomDataRef.current._id,
         });
       } catch (err) {
         console.error("Error handling offer:", err);
       }
     },
-    [createPeerConnection, roomData],
+    [createPeerConnection],
   );
 
   // Handle received answer
@@ -264,18 +273,29 @@ const StreamMeet = () => {
       console.log("Room participants:", list);
       setParticipants(list);
 
-      // Create peer connections with existing participants
-      list.forEach((p) => {
-        if (p.oderId !== user._id) {
-          sendOffer(p.oderId);
-        }
-      });
+      // When we first join, we receive the list of existing participants
+      // We should send offers to all of them to establish connections
+      // Small delay to ensure roomData is set
+      setTimeout(() => {
+        list.forEach((p) => {
+          if (p.oderId !== user._id && roomDataRef.current) {
+            console.log("Sending offer to existing participant:", p.oderId);
+            sendOffer(p.oderId);
+          }
+        });
+      }, 500);
     };
 
     const handleUserJoined = ({ oderId, username, participants: list }) => {
       console.log("User joined:", username, oderId);
       setParticipants(list);
-      // New user joined, they will send us an offer
+
+      // When a new user joins, WE (existing user) should send them an offer
+      // This ensures both sides establish a connection
+      if (oderId !== user._id && roomDataRef.current) {
+        console.log("Sending offer to new user:", oderId);
+        sendOffer(oderId);
+      }
     };
 
     const handleUserLeft = ({ oderId, participants: list }) => {
@@ -294,7 +314,7 @@ const StreamMeet = () => {
         delete newStreams[oderId];
         return newStreams;
       });
-      
+
       // Also clean up any pending candidates
       if (pendingCandidates.current[oderId]) {
         delete pendingCandidates.current[oderId];
@@ -303,9 +323,7 @@ const StreamMeet = () => {
 
     const handleOfferReceived = async ({ offer, senderId }) => {
       console.log("Received offer from:", senderId);
-      if (roomData) {
-        await handleOffer(offer, senderId);
-      }
+      await handleOffer(offer, senderId);
     };
 
     const handleAnswerReceived = async ({ answer, senderId }) => {
@@ -347,11 +365,11 @@ const StreamMeet = () => {
     };
   }, [
     user,
-    roomData,
     sendOffer,
     handleOffer,
     handleAnswer,
     handleIceCandidate,
+    cleanupAndNavigate,
   ]);
 
   // Cleanup function
@@ -376,7 +394,10 @@ const StreamMeet = () => {
   // Pre-create room to get meeting link (like Google Meet)
   const preCreateRoom = async () => {
     if (!user) {
-      sessionStorage.setItem("redirectAfterLogin", "/streammeet/new?mode=" + mode);
+      sessionStorage.setItem(
+        "redirectAfterLogin",
+        "/streammeet/new?mode=" + mode,
+      );
       navigate("/login");
       return;
     }
@@ -384,13 +405,19 @@ const StreamMeet = () => {
     setIsLoading(true);
     try {
       const { data } = await API.post("/streams/room", {
-        title: title || `${user.username}'s ${mode === "meet" ? "Meeting" : "Stream"}`,
+        title:
+          title ||
+          `${user.username}'s ${mode === "meet" ? "Meeting" : "Stream"}`,
         mode,
       });
 
       console.log("Room pre-created:", data.data);
       setPreCreatedRoom(data.data);
-      window.history.replaceState(null, "", `/streammeet/${data.data._id}?mode=${mode}`);
+      window.history.replaceState(
+        null,
+        "",
+        `/streammeet/${data.data._id}?mode=${mode}`,
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Failed to create room");
     } finally {
@@ -421,7 +448,10 @@ const StreamMeet = () => {
       return;
     }
     if (!user) {
-      sessionStorage.setItem("redirectAfterLogin", "/streammeet/new?mode=" + mode);
+      sessionStorage.setItem(
+        "redirectAfterLogin",
+        "/streammeet/new?mode=" + mode,
+      );
       navigate("/login");
       return;
     }
@@ -435,7 +465,9 @@ const StreamMeet = () => {
     setIsLoading(true);
     try {
       const { data } = await API.post("/streams/room", {
-        title: title || `${user.username}'s ${mode === "meet" ? "Meeting" : "Stream"}`,
+        title:
+          title ||
+          `${user.username}'s ${mode === "meet" ? "Meeting" : "Stream"}`,
         mode,
       });
 
@@ -451,7 +483,11 @@ const StreamMeet = () => {
         isHost: true,
       });
 
-      window.history.replaceState(null, "", `/streammeet/${data.data._id}?mode=${mode}`);
+      window.history.replaceState(
+        null,
+        "",
+        `/streammeet/${data.data._id}?mode=${mode}`,
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Failed to create room");
     } finally {
@@ -632,22 +668,22 @@ const StreamMeet = () => {
   // Cleanup stale remote streams when participants change
   useEffect(() => {
     if (!isJoined) return;
-    
+
     // Get list of valid participant IDs (excluding self)
     const validParticipantIds = participants
-      .filter(p => p.oderId !== user._id)
-      .map(p => p.oderId);
-    
+      .filter((p) => p.oderId !== user._id)
+      .map((p) => p.oderId);
+
     // Remove remote streams for participants who are no longer in the list
-    setRemoteStreams(prev => {
+    setRemoteStreams((prev) => {
       const newStreams = { ...prev };
       let changed = false;
-      
-      Object.keys(newStreams).forEach(oderId => {
+
+      Object.keys(newStreams).forEach((oderId) => {
         if (!validParticipantIds.includes(oderId)) {
           delete newStreams[oderId];
           changed = true;
-          
+
           // Also close the peer connection
           if (peerConnections.current[oderId]) {
             peerConnections.current[oderId].close();
@@ -655,7 +691,7 @@ const StreamMeet = () => {
           }
         }
       });
-      
+
       return changed ? newStreams : prev;
     });
   }, [participants, isJoined, user]);
@@ -678,14 +714,16 @@ const StreamMeet = () => {
   }
 
   const participantCount = participants.length || 1;
-  
+
   // Filter remote streams to only show those with matching participants
   // This prevents ghost participants from appearing
-  const validRemoteStreams = Object.entries(remoteStreams).filter(([oderId]) => {
-    const hasParticipant = participants.some(p => p.oderId === oderId);
-    const isNotMe = oderId !== user._id;
-    return hasParticipant && isNotMe;
-  });
+  const validRemoteStreams = Object.entries(remoteStreams).filter(
+    ([oderId]) => {
+      const hasParticipant = participants.some((p) => p.oderId === oderId);
+      const isNotMe = oderId !== user._id;
+      return hasParticipant && isNotMe;
+    },
+  );
 
   // Setup screen (before joining)
   if (!isJoined) {
@@ -730,7 +768,11 @@ const StreamMeet = () => {
                 className={`preview-btn ${!videoEnabled ? "off" : ""}`}
                 disabled={!setupComplete}
               >
-                {videoEnabled ? <FiVideo size={20} /> : <FiVideoOff size={20} />}
+                {videoEnabled ? (
+                  <FiVideo size={20} />
+                ) : (
+                  <FiVideoOff size={20} />
+                )}
               </button>
             </div>
           </div>
@@ -758,7 +800,10 @@ const StreamMeet = () => {
                   <span className="link-text">
                     {window.location.origin}/streammeet/{preCreatedRoom._id}
                   </span>
-                  <button onClick={copyPreCreatedLink} className="copy-link-btn">
+                  <button
+                    onClick={copyPreCreatedLink}
+                    className="copy-link-btn"
+                  >
                     {linkCopied ? <FiCheck size={18} /> : <FiCopy size={18} />}
                   </button>
                 </div>
@@ -768,15 +813,17 @@ const StreamMeet = () => {
               </div>
             )}
 
-            {mode === "stream" && (!roomId || roomId === "new") && !preCreatedRoom && (
-              <input
-                type="text"
-                placeholder="Enter stream title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="meet-input"
-              />
-            )}
+            {mode === "stream" &&
+              (!roomId || roomId === "new") &&
+              !preCreatedRoom && (
+                <input
+                  type="text"
+                  placeholder="Enter stream title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="meet-input"
+                />
+              )}
 
             {error && <div className="meet-error">{error}</div>}
 
@@ -1021,7 +1068,7 @@ const RemoteVideo = ({ stream, participant }) => {
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
-      
+
       // Check if video track is enabled
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
@@ -1032,12 +1079,17 @@ const RemoteVideo = ({ stream, participant }) => {
     }
   }, [stream]);
 
-  const username = participant?.username || 'Participant';
+  const username = participant?.username || "Participant";
   const isHost = participant?.isHost;
 
   return (
     <div className="meet-video-tile">
-      <video ref={videoRef} autoPlay playsInline style={{ display: hasVideo ? 'block' : 'none' }} />
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        style={{ display: hasVideo ? "block" : "none" }}
+      />
       {!hasVideo && (
         <div className="video-off-overlay">
           <div className="avatar-circle large">
@@ -1046,7 +1098,9 @@ const RemoteVideo = ({ stream, participant }) => {
         </div>
       )}
       <div className="tile-label">
-        <span>{username} {isHost && "(Host)"}</span>
+        <span>
+          {username} {isHost && "(Host)"}
+        </span>
       </div>
     </div>
   );
