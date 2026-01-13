@@ -48,6 +48,7 @@ const StreamMeet = () => {
   const [roomData, setRoomData] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [remoteStreams, setRemoteStreams] = useState({});
+  const [participantMediaState, setParticipantMediaState] = useState({}); // Track remote participants' media state
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -363,6 +364,14 @@ const StreamMeet = () => {
       cleanupAndNavigate();
     };
 
+    const handleParticipantMediaChange = ({ oderId, videoEnabled, audioEnabled }) => {
+      console.log("Participant media change:", oderId, { videoEnabled, audioEnabled });
+      setParticipantMediaState(prev => ({
+        ...prev,
+        [oderId]: { videoEnabled, audioEnabled }
+      }));
+    };
+
     socket.on("room-participants", handleRoomParticipants);
     socket.on("user-joined", handleUserJoined);
     socket.on("user-left", handleUserLeft);
@@ -371,6 +380,7 @@ const StreamMeet = () => {
     socket.on("ice-candidate", handleIceCandidateReceived);
     socket.on("chat-message", handleChatMessage);
     socket.on("room-ended", handleRoomEnded);
+    socket.on("participant-media-change", handleParticipantMediaChange);
 
     return () => {
       socket.off("room-participants", handleRoomParticipants);
@@ -381,6 +391,7 @@ const StreamMeet = () => {
       socket.off("ice-candidate", handleIceCandidateReceived);
       socket.off("chat-message", handleChatMessage);
       socket.off("room-ended", handleRoomEnded);
+      socket.off("participant-media-change", handleParticipantMediaChange);
     };
   }, [
     user,
@@ -439,6 +450,16 @@ const StreamMeet = () => {
       username: user.username,
       isHost: true,
     });
+    
+    // Send initial media state after joining
+    setTimeout(() => {
+      socket.emit("media-state-change", {
+        roomId: preCreatedRoom._id,
+        oderId: user._id,
+        videoEnabled: videoEnabled,
+        audioEnabled: audioEnabled
+      });
+    }, 500);
   };
 
   // Create room
@@ -482,6 +503,16 @@ const StreamMeet = () => {
         username: user.username,
         isHost: true,
       });
+      
+      // Send initial media state after joining
+      setTimeout(() => {
+        socket.emit("media-state-change", {
+          roomId: data.data._id,
+          oderId: user._id,
+          videoEnabled: videoEnabled,
+          audioEnabled: audioEnabled
+        });
+      }, 500);
 
       window.history.replaceState(
         null,
@@ -531,6 +562,16 @@ const StreamMeet = () => {
         username: user.username,
         isHost: amIHost,
       });
+      
+      // Send initial media state after joining
+      setTimeout(() => {
+        socket.emit("media-state-change", {
+          roomId: data.data._id,
+          oderId: user._id,
+          videoEnabled: videoEnabled,
+          audioEnabled: audioEnabled
+        });
+      }, 500);
     } catch (err) {
       console.error("Join error:", err);
       setError(err.response?.data?.message || "Room not found or has ended");
@@ -567,6 +608,16 @@ const StreamMeet = () => {
       if (track) {
         track.enabled = !track.enabled;
         setVideoEnabled(track.enabled);
+        
+        // Notify other participants about media state change
+        if (roomData && user) {
+          socket.emit("media-state-change", {
+            roomId: roomData._id,
+            oderId: user._id,
+            videoEnabled: track.enabled,
+            audioEnabled: audioEnabled
+          });
+        }
       }
     }
   };
@@ -577,6 +628,16 @@ const StreamMeet = () => {
       if (track) {
         track.enabled = !track.enabled;
         setAudioEnabled(track.enabled);
+        
+        // Notify other participants about media state change
+        if (roomData && user) {
+          socket.emit("media-state-change", {
+            roomId: roomData._id,
+            oderId: user._id,
+            videoEnabled: videoEnabled,
+            audioEnabled: track.enabled
+          });
+        }
       }
     }
   };
@@ -899,11 +960,14 @@ const StreamMeet = () => {
           {validRemoteStreams.map(([oderId, stream]) => {
             const participant = participants.find((p) => p.oderId === oderId);
             if (!participant) return null;
+            const mediaState = participantMediaState[oderId];
             return (
               <RemoteVideo
                 key={oderId}
                 stream={stream}
                 participant={participant}
+                videoEnabled={mediaState?.videoEnabled}
+                audioEnabled={mediaState?.audioEnabled}
               />
             );
           })}
@@ -1059,36 +1123,29 @@ const StreamMeet = () => {
 };
 
 // Remote video component
-const RemoteVideo = ({ stream, participant }) => {
+const RemoteVideo = ({ stream, participant, videoEnabled, audioEnabled }) => {
   const videoRef = useRef(null);
-  const [showVideo, setShowVideo] = useState(true);
+  const [hasVideoTrack, setHasVideoTrack] = useState(true);
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
 
-      // Check video tracks
+      // Check if stream has video tracks at all
       const videoTracks = stream.getVideoTracks();
-      if (videoTracks.length > 0) {
-        const videoTrack = videoTracks[0];
-        setShowVideo(videoTrack.enabled && !videoTrack.muted);
-
-        // Listen for track state changes
-        videoTrack.onmute = () => setShowVideo(false);
-        videoTrack.onunmute = () => setShowVideo(true);
-        videoTrack.onended = () => setShowVideo(false);
-      } else {
-        setShowVideo(false);
-      }
+      setHasVideoTrack(videoTracks.length > 0);
     }
   }, [stream]);
 
   const username = participant?.username || "Participant";
   const isHost = participant?.isHost;
+  
+  // Show video only if: we have a video track AND (videoEnabled is undefined meaning we haven't received state yet, OR videoEnabled is true)
+  const showVideo = hasVideoTrack && (videoEnabled === undefined || videoEnabled === true);
 
   return (
     <div className="meet-video-tile">
-      <video ref={videoRef} autoPlay playsInline />
+      <video ref={videoRef} autoPlay playsInline style={{ display: showVideo ? 'block' : 'none' }} />
       {!showVideo && (
         <div className="video-off-overlay">
           <div className="avatar-circle large">
@@ -1100,6 +1157,10 @@ const RemoteVideo = ({ stream, participant }) => {
         <span>
           {username} {isHost && "(Host)"}
         </span>
+        <div className="tile-icons">
+          {audioEnabled === false && <FiMicOff size={14} />}
+          {videoEnabled === false && <FiVideoOff size={14} />}
+        </div>
       </div>
     </div>
   );

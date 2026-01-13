@@ -11,12 +11,12 @@ const initSocketServer = (httpServer) => {
           "http://localhost:3000",
           process.env.FRONTEND_URL,
         ].filter(Boolean);
-        
+
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
           return callback(null, true);
         }
-        return callback(new Error('Not allowed by CORS'));
+        return callback(new Error("Not allowed by CORS"));
       },
       methods: ["GET", "POST"],
       credentials: true,
@@ -45,8 +45,13 @@ const initSocketServer = (httpServer) => {
         socket.join(streamId);
         socket.streamId = streamId;
         socket.isBroadcaster = false;
-        try { await Stream.findByIdAndUpdate(streamId, { $inc: { viewers: 1 } }); } catch (e) {}
-        io.to(stream.broadcaster).emit("viewer-joined", { viewerId: socket.id, viewerCount: stream.viewers.size });
+        try {
+          await Stream.findByIdAndUpdate(streamId, { $inc: { viewers: 1 } });
+        } catch (e) {}
+        io.to(stream.broadcaster).emit("viewer-joined", {
+          viewerId: socket.id,
+          viewerCount: stream.viewers.size,
+        });
       }
     });
 
@@ -54,7 +59,13 @@ const initSocketServer = (httpServer) => {
       const stream = streams.get(streamId);
       if (stream) {
         io.to(streamId).emit("stream-ended");
-        try { await Stream.findByIdAndUpdate(streamId, { isLive: false, endedAt: new Date(), viewers: 0 }); } catch (e) {}
+        try {
+          await Stream.findByIdAndUpdate(streamId, {
+            isLive: false,
+            endedAt: new Date(),
+            viewers: 0,
+          });
+        } catch (e) {}
         streams.delete(streamId);
       }
     });
@@ -63,44 +74,65 @@ const initSocketServer = (httpServer) => {
     socket.on("join-room", async (data) => {
       const { roomId, isHost } = data;
       const oderId = data.oderId || socket.id;
-      const username = data.username || 'Unknown User';
-      
+      const username = data.username || "Unknown User";
+
       console.log(`User ${username} (${oderId}) joining room ${roomId}`);
-      
+
       if (!rooms.has(roomId)) {
         rooms.set(roomId, { participants: new Map() });
       }
-      
+
       const room = rooms.get(roomId);
-      
+
       // Remove any existing entry for this user (in case of reconnection)
       room.participants.forEach((value, key) => {
         if (key === oderId || value.socketId === socket.id) {
           room.participants.delete(key);
         }
       });
-      
-      room.participants.set(oderId, { 
-        socketId: socket.id, 
-        username: username, 
-        isHost: !!isHost, 
-        oderId 
+
+      room.participants.set(oderId, {
+        socketId: socket.id,
+        username: username,
+        isHost: !!isHost,
+        oderId,
+        videoEnabled: true, // Default to true
+        audioEnabled: true, // Default to true
       });
-      
+
       socket.join(roomId);
       socket.roomId = roomId;
       socket.oderId = oderId;
       socket.username = username;
 
       const participantsList = Array.from(room.participants.values());
-      
+
       // Notify others
-      socket.to(roomId).emit("user-joined", { oderId, username, participants: participantsList });
-      
-      // Send participants to new user
+      socket
+        .to(roomId)
+        .emit("user-joined", {
+          oderId,
+          username,
+          participants: participantsList,
+        });
+
+      // Send participants to new user (includes their media states)
       socket.emit("room-participants", { participants: participantsList });
 
-      try { await Stream.findByIdAndUpdate(roomId, { $inc: { viewers: 1 } }); } catch (e) {}
+      // Send existing participants' media states to the new user
+      participantsList.forEach((p) => {
+        if (p.oderId !== oderId) {
+          socket.emit("participant-media-change", {
+            oderId: p.oderId,
+            videoEnabled: p.videoEnabled !== false,
+            audioEnabled: p.audioEnabled !== false,
+          });
+        }
+      });
+
+      try {
+        await Stream.findByIdAndUpdate(roomId, { $inc: { viewers: 1 } });
+      } catch (e) {}
     });
 
     socket.on("leave-room", async (data) => {
@@ -114,7 +146,10 @@ const initSocketServer = (httpServer) => {
       if (room) {
         const target = room.participants.get(targetId);
         if (target) {
-          io.to(target.socketId).emit("offer", { offer, senderId: socket.oderId });
+          io.to(target.socketId).emit("offer", {
+            offer,
+            senderId: socket.oderId,
+          });
         }
       }
     });
@@ -124,7 +159,10 @@ const initSocketServer = (httpServer) => {
       if (room) {
         const target = room.participants.get(targetId);
         if (target) {
-          io.to(target.socketId).emit("answer", { answer, senderId: socket.oderId });
+          io.to(target.socketId).emit("answer", {
+            answer,
+            senderId: socket.oderId,
+          });
         }
       }
     });
@@ -134,7 +172,10 @@ const initSocketServer = (httpServer) => {
       if (room) {
         const target = room.participants.get(targetId);
         if (target) {
-          io.to(target.socketId).emit("ice-candidate", { candidate, senderId: socket.oderId });
+          io.to(target.socketId).emit("ice-candidate", {
+            candidate,
+            senderId: socket.oderId,
+          });
         }
       }
     });
@@ -145,38 +186,75 @@ const initSocketServer = (httpServer) => {
       const room = rooms.get(roomId);
       if (room) {
         io.to(roomId).emit("room-ended");
-        try { 
-          await Stream.findByIdAndUpdate(roomId, { isLive: false, endedAt: new Date(), viewers: 0 }); 
+        try {
+          await Stream.findByIdAndUpdate(roomId, {
+            isLive: false,
+            endedAt: new Date(),
+            viewers: 0,
+          });
         } catch (e) {
-          console.error('Error updating stream:', e);
+          console.error("Error updating stream:", e);
         }
         rooms.delete(roomId);
       }
     });
 
+    // Media state changes (video/audio toggle)
+    socket.on(
+      "media-state-change",
+      ({ roomId, oderId, videoEnabled, audioEnabled }) => {
+        const room = rooms.get(roomId);
+        if (room) {
+          // Update participant's media state
+          const participant = room.participants.get(oderId);
+          if (participant) {
+            participant.videoEnabled = videoEnabled;
+            participant.audioEnabled = audioEnabled;
+          }
+          // Broadcast to all other participants in the room
+          socket.to(roomId).emit("participant-media-change", {
+            oderId,
+            videoEnabled,
+            audioEnabled,
+          });
+        }
+      }
+    );
+
     // Chat
     socket.on("chat-message", ({ roomId, streamId, message, user }) => {
       const targetRoom = roomId || streamId;
-      io.to(targetRoom).emit("chat-message", { id: Date.now(), message, user, timestamp: new Date().toISOString() });
+      io.to(targetRoom).emit("chat-message", {
+        id: Date.now(),
+        message,
+        user,
+        timestamp: new Date().toISOString(),
+      });
     });
 
     // Disconnect
     socket.on("disconnect", async () => {
       console.log("Client disconnected:", socket.id);
-      
+
       if (socket.streamId) {
         if (socket.isBroadcaster) {
           const stream = streams.get(socket.streamId);
           if (stream) {
             io.to(socket.streamId).emit("stream-ended");
-            try { await Stream.findByIdAndUpdate(socket.streamId, { isLive: false, endedAt: new Date(), viewers: 0 }); } catch (e) {}
+            try {
+              await Stream.findByIdAndUpdate(socket.streamId, {
+                isLive: false,
+                endedAt: new Date(),
+                viewers: 0,
+              });
+            } catch (e) {}
             streams.delete(socket.streamId);
           }
         } else {
           await handleLeaveStream(socket, socket.streamId);
         }
       }
-      
+
       if (socket.roomId && socket.oderId) {
         await handleLeaveRoom(socket, socket.roomId, socket.oderId);
       }
@@ -188,8 +266,13 @@ const initSocketServer = (httpServer) => {
     if (stream && stream.viewers.has(socket.id)) {
       stream.viewers.delete(socket.id);
       socket.leave(streamId);
-      try { await Stream.findByIdAndUpdate(streamId, { $inc: { viewers: -1 } }); } catch (e) {}
-      io.to(stream.broadcaster).emit("viewer-left", { viewerId: socket.id, viewerCount: stream.viewers.size });
+      try {
+        await Stream.findByIdAndUpdate(streamId, { $inc: { viewers: -1 } });
+      } catch (e) {}
+      io.to(stream.broadcaster).emit("viewer-left", {
+        viewerId: socket.id,
+        viewerCount: stream.viewers.size,
+      });
     }
   }
 
@@ -198,14 +281,19 @@ const initSocketServer = (httpServer) => {
     if (room && room.participants.has(oderId)) {
       const leavingParticipant = room.participants.get(oderId);
       const wasHost = leavingParticipant?.isHost;
-      
+
       room.participants.delete(oderId);
       socket.leave(roomId);
-      try { await Stream.findByIdAndUpdate(roomId, { $inc: { viewers: -1 } }); } catch (e) {}
-      
+      try {
+        await Stream.findByIdAndUpdate(roomId, { $inc: { viewers: -1 } });
+      } catch (e) {}
+
       const participantsList = Array.from(room.participants.values());
-      io.to(roomId).emit("user-left", { oderId, participants: participantsList });
-      
+      io.to(roomId).emit("user-left", {
+        oderId,
+        participants: participantsList,
+      });
+
       // Only end the room if the host left or no participants remain
       if (wasHost || room.participants.size === 0) {
         // If host left, notify everyone and end the room
@@ -213,7 +301,12 @@ const initSocketServer = (httpServer) => {
           io.to(roomId).emit("room-ended");
         }
         rooms.delete(roomId);
-        try { await Stream.findByIdAndUpdate(roomId, { isLive: false, endedAt: new Date() }); } catch (e) {}
+        try {
+          await Stream.findByIdAndUpdate(roomId, {
+            isLive: false,
+            endedAt: new Date(),
+          });
+        } catch (e) {}
       }
     }
   }

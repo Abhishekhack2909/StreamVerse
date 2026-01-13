@@ -1,12 +1,10 @@
 import axios from "axios";
 import { supabase } from "../lib/supabase";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
-
 const API = axios.create({
-  baseURL: API_URL,
+  baseURL: "http://localhost:8000/api/v1",
   withCredentials: true,
-  timeout: 60000,
+  timeout: 60000, // 60 seconds timeout for file uploads
 });
 
 // Request interceptor to add Supabase auth token
@@ -15,7 +13,9 @@ API.interceptors.request.use(
     // Get current session from Supabase if available
     if (supabase) {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (session?.access_token) {
           config.headers.Authorization = `Bearer ${session.access_token}`;
         }
@@ -23,7 +23,7 @@ API.interceptors.request.use(
         console.error("Error getting session:", e);
       }
     }
-    
+
     // Don't set Content-Type for FormData - let browser set it with boundary
     if (config.data instanceof FormData) {
       delete config.headers["Content-Type"];
@@ -40,14 +40,17 @@ API.interceptors.response.use(
     if (error.response?.status === 401 && supabase) {
       try {
         // Try to refresh the session
-        const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
-        
+        const {
+          data: { session },
+          error: refreshError,
+        } = await supabase.auth.refreshSession();
+
         if (refreshError || !session) {
           // Redirect to login if refresh fails
           window.location.href = "/login";
           return Promise.reject(error);
         }
-        
+
         // Retry the original request with new token
         error.config.headers.Authorization = `Bearer ${session.access_token}`;
         return API(error.config);
