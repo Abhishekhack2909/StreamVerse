@@ -45,7 +45,11 @@ function App() {
                 <StreamMeet />
               </ProtectedRoute>
             } />
-            <Route path="streammeet/:roomId" element={<StreamMeet />} />
+            <Route path="streammeet/:roomId" element={
+              <ProtectedRoute>
+                <StreamMeet />
+              </ProtectedRoute>
+            } />
             
             {/* Protected Routes */}
             <Route path="upload" element={

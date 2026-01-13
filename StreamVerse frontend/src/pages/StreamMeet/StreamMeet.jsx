@@ -24,6 +24,7 @@ const ICE_SERVERS = {
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
   ],
 };
 
@@ -32,31 +33,20 @@ const StreamMeet = () => {
   const { roomId } = useParams();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get("mode") || "meet";
-  const { user } = useAuth();
-
-  // Generate a unique guest ID if user is not logged in
-  const guestIdRef = useRef(null);
-  if (!guestIdRef.current) {
-    guestIdRef.current = "guest_" + Math.random().toString(36).substring(2, 15);
-  }
-
-  // Use user ID if logged in, otherwise use guest ID
-  const myId = user?._id || guestIdRef.current;
-  const myUsername = user?.username || "Guest";
+  const { user, loading: authLoading } = useAuth();
 
   // Refs
   const localVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
-  const peerConnections = useRef(new Map());
-  const roomDataRef = useRef(null);
-  const myIdRef = useRef(myId);
+  const peerConnections = useRef({});
+  const pendingCandidates = useRef({});
 
   // State
   const [isJoined, setIsJoined] = useState(false);
   const [roomData, setRoomData] = useState(null);
   const [participants, setParticipants] = useState([]);
-  const [remoteStreams, setRemoteStreams] = useState(new Map());
+  const [remoteStreams, setRemoteStreams] = useState({});
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -74,14 +64,15 @@ const StreamMeet = () => {
   const [isHost, setIsHost] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
 
+  // Check if user needs to login
   useEffect(() => {
-    roomDataRef.current = roomData;
-  }, [roomData]);
+    if (!authLoading && !user && roomId && roomId !== "new") {
+      // Save the meeting URL and redirect to login
+      sessionStorage.setItem("redirectAfterLogin", `/streammeet/${roomId}`);
+      navigate("/login", { state: { from: `/streammeet/${roomId}` } });
+    }
+  }, [authLoading, user, roomId, navigate]);
 
-  // Keep myIdRef updated
-  useEffect(() => {
-    myIdRef.current = myId;
-  }, [myId]);
   // Initialize media
   const initializeMedia = useCallback(async () => {
     try {
@@ -101,7 +92,7 @@ const StreamMeet = () => {
         localVideoRef.current.srcObject = stream;
       }
       setSetupComplete(true);
-      return true;
+      return stream;
     } catch (err) {
       console.error("Media error:", err);
       let msg = "Failed to access camera/microphone. ";
@@ -113,161 +104,251 @@ const StreamMeet = () => {
         msg += "Device is in use by another app.";
       else msg += err.message;
       setMediaError(msg);
-      return false;
+      return null;
     }
   }, []);
 
-  // Socket events
-  useEffect(() => {
-    connectSocket();
-
-    socket.on("room-participants", ({ participants: list }) => {
-      console.log("Room participants:", list);
-      setParticipants(list);
-      list.forEach((p) => {
-        if (p.oderId !== myIdRef.current && localStreamRef.current) {
-          createPeerConnection(p.oderId, true);
-        }
-      });
-    });
-
-    socket.on("user-joined", ({ oderId, username, participants: list }) => {
-      console.log("User joined:", username, oderId);
-      setParticipants(list);
-      if (oderId !== myIdRef.current && localStreamRef.current) {
-        createPeerConnection(oderId, true);
+  // Create peer connection for a specific user
+  const createPeerConnection = useCallback(
+    (oderId) => {
+      if (peerConnections.current[oderId]) {
+        return peerConnections.current[oderId];
       }
-    });
 
-    socket.on("user-left", ({ oderId, participants: list }) => {
-      console.log("User left:", oderId);
-      setParticipants(list);
-      const pc = peerConnections.current.get(oderId);
-      if (pc) {
-        pc.close();
-        peerConnections.current.delete(oderId);
-      }
-      setRemoteStreams((prev) => {
-        const newMap = new Map(prev);
-        newMap.delete(oderId);
-        return newMap;
-      });
-    });
+      console.log("Creating peer connection for:", oderId);
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      peerConnections.current[oderId] = pc;
 
-    socket.on("offer", async ({ offer, senderId }) => {
-      console.log("Received offer from:", senderId);
-      await handleOffer(offer, senderId);
-    });
-
-    socket.on("answer", async ({ answer, senderId }) => {
-      console.log("Received answer from:", senderId);
-      const pc = peerConnections.current.get(senderId);
-      if (pc && pc.signalingState !== "stable") {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-      }
-    });
-
-    socket.on("ice-candidate", async ({ candidate, senderId }) => {
-      const pc = peerConnections.current.get(senderId);
-      if (pc && candidate) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {
-          console.error("ICE error:", err);
-        }
-      }
-    });
-
-    socket.on("chat-message", (message) => {
-      setChatMessages((prev) => [...prev, message]);
-    });
-
-    socket.on("room-ended", () => {
-      alert("The meeting has ended");
-      cleanupAndNavigate();
-    });
-
-    return () => {
-      socket.off("room-participants");
-      socket.off("user-joined");
-      socket.off("user-left");
-      socket.off("offer");
-      socket.off("answer");
-      socket.off("ice-candidate");
-      socket.off("chat-message");
-      socket.off("room-ended");
-    };
-  }, [navigate]);
-
-  // Create peer connection
-  const createPeerConnection = async (oderId, createOffer = false) => {
-    if (peerConnections.current.has(oderId))
-      return peerConnections.current.get(oderId);
-
-    console.log("Creating peer connection for:", oderId);
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-    peerConnections.current.set(oderId, pc);
-
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => {
-        pc.addTrack(track, localStreamRef.current);
-      });
-    }
-
-    pc.ontrack = (event) => {
-      console.log("Received track from:", oderId);
-      setRemoteStreams((prev) => {
-        const newMap = new Map(prev);
-        newMap.set(oderId, event.streams[0]);
-        return newMap;
-      });
-    };
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate && roomDataRef.current) {
-        socket.emit("ice-candidate", {
-          candidate: event.candidate,
-          targetId: oderId,
-          roomId: roomDataRef.current._id,
+      // Add local tracks
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => {
+          console.log("Adding track to peer connection:", track.kind);
+          pc.addTrack(track, localStreamRef.current);
         });
       }
+
+      // Handle incoming tracks
+      pc.ontrack = (event) => {
+        console.log("Received remote track from:", oderId, event.track.kind);
+        setRemoteStreams((prev) => ({ ...prev, [oderId]: event.streams[0] }));
+      };
+
+      // Handle ICE candidates
+      pc.onicecandidate = (event) => {
+        if (event.candidate && roomData) {
+          console.log("Sending ICE candidate to:", oderId);
+          socket.emit("ice-candidate", {
+            candidate: event.candidate,
+            targetId: oderId,
+            roomId: roomData._id,
+          });
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log(
+          "ICE connection state for",
+          oderId,
+          ":",
+          pc.iceConnectionState,
+        );
+        if (
+          pc.iceConnectionState === "failed" ||
+          pc.iceConnectionState === "disconnected"
+        ) {
+          console.log("Connection failed/disconnected, attempting restart");
+        }
+      };
+
+      // Process any pending ICE candidates
+      if (pendingCandidates.current[oderId]) {
+        pendingCandidates.current[oderId].forEach((candidate) => {
+          pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(
+            console.error,
+          );
+        });
+        delete pendingCandidates.current[oderId];
+      }
+
+      return pc;
+    },
+    [roomData],
+  );
+
+  // Send offer to a peer
+  const sendOffer = useCallback(
+    async (oderId) => {
+      const pc = createPeerConnection(oderId);
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        console.log("Sending offer to:", oderId);
+        socket.emit("offer", {
+          offer: pc.localDescription,
+          targetId: oderId,
+          roomId: roomData._id,
+        });
+      } catch (err) {
+        console.error("Error creating offer:", err);
+      }
+    },
+    [createPeerConnection, roomData],
+  );
+
+  // Handle received offer
+  const handleOffer = useCallback(
+    async (offer, senderId) => {
+      console.log("Handling offer from:", senderId);
+      const pc = createPeerConnection(senderId);
+
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        console.log("Sending answer to:", senderId);
+        socket.emit("answer", {
+          answer: pc.localDescription,
+          targetId: senderId,
+          roomId: roomData._id,
+        });
+      } catch (err) {
+        console.error("Error handling offer:", err);
+      }
+    },
+    [createPeerConnection, roomData],
+  );
+
+  // Handle received answer
+  const handleAnswer = useCallback(async (answer, senderId) => {
+    console.log("Handling answer from:", senderId);
+    const pc = peerConnections.current[senderId];
+    if (pc && pc.signalingState !== "stable") {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      } catch (err) {
+        console.error("Error setting remote description:", err);
+      }
+    }
+  }, []);
+
+  // Handle ICE candidate
+  const handleIceCandidate = useCallback(async (candidate, senderId) => {
+    const pc = peerConnections.current[senderId];
+    if (pc && pc.remoteDescription) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error("Error adding ICE candidate:", err);
+      }
+    } else {
+      // Store candidate for later
+      if (!pendingCandidates.current[senderId]) {
+        pendingCandidates.current[senderId] = [];
+      }
+      pendingCandidates.current[senderId].push(candidate);
+    }
+  }, []);
+
+  // Socket event handlers
+  useEffect(() => {
+    if (!user) return;
+
+    connectSocket();
+
+    const handleRoomParticipants = ({ participants: list }) => {
+      console.log("Room participants:", list);
+      setParticipants(list);
+
+      // Create peer connections with existing participants
+      list.forEach((p) => {
+        if (p.oderId !== user._id) {
+          sendOffer(p.oderId);
+        }
+      });
     };
 
-    if (createOffer) {
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      socket.emit("offer", {
-        offer,
-        targetId: oderId,
-        roomId: roomDataRef.current._id,
+    const handleUserJoined = ({ oderId, username, participants: list }) => {
+      console.log("User joined:", username, oderId);
+      setParticipants(list);
+      // New user joined, they will send us an offer
+    };
+
+    const handleUserLeft = ({ oderId, participants: list }) => {
+      console.log("User left:", oderId);
+      setParticipants(list);
+
+      // Clean up peer connection
+      if (peerConnections.current[oderId]) {
+        peerConnections.current[oderId].close();
+        delete peerConnections.current[oderId];
+      }
+
+      setRemoteStreams((prev) => {
+        const newStreams = { ...prev };
+        delete newStreams[oderId];
+        return newStreams;
       });
-    }
+    };
 
-    return pc;
-  };
+    const handleOfferReceived = async ({ offer, senderId }) => {
+      console.log("Received offer from:", senderId);
+      if (roomData) {
+        await handleOffer(offer, senderId);
+      }
+    };
 
-  const handleOffer = async (offer, senderId) => {
-    let pc = peerConnections.current.get(senderId);
-    if (!pc) {
-      pc = await createPeerConnection(senderId, false);
-    }
+    const handleAnswerReceived = async ({ answer, senderId }) => {
+      console.log("Received answer from:", senderId);
+      await handleAnswer(answer, senderId);
+    };
 
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
+    const handleIceCandidateReceived = async ({ candidate, senderId }) => {
+      await handleIceCandidate(candidate, senderId);
+    };
 
-    socket.emit("answer", {
-      answer,
-      targetId: senderId,
-      roomId: roomDataRef.current._id,
-    });
-  };
+    const handleChatMessage = (message) => {
+      setChatMessages((prev) => [...prev, message]);
+    };
+
+    const handleRoomEnded = () => {
+      alert("The meeting has ended");
+      cleanupAndNavigate();
+    };
+
+    socket.on("room-participants", handleRoomParticipants);
+    socket.on("user-joined", handleUserJoined);
+    socket.on("user-left", handleUserLeft);
+    socket.on("offer", handleOfferReceived);
+    socket.on("answer", handleAnswerReceived);
+    socket.on("ice-candidate", handleIceCandidateReceived);
+    socket.on("chat-message", handleChatMessage);
+    socket.on("room-ended", handleRoomEnded);
+
+    return () => {
+      socket.off("room-participants", handleRoomParticipants);
+      socket.off("user-joined", handleUserJoined);
+      socket.off("user-left", handleUserLeft);
+      socket.off("offer", handleOfferReceived);
+      socket.off("answer", handleAnswerReceived);
+      socket.off("ice-candidate", handleIceCandidateReceived);
+      socket.off("chat-message", handleChatMessage);
+      socket.off("room-ended", handleRoomEnded);
+    };
+  }, [
+    user,
+    roomData,
+    sendOffer,
+    handleOffer,
+    handleAnswer,
+    handleIceCandidate,
+  ]);
 
   // Cleanup function
-  const cleanupAndNavigate = () => {
+  const cleanupAndNavigate = useCallback(() => {
     // Close all peer connections
-    peerConnections.current.forEach((pc) => pc.close());
-    peerConnections.current.clear();
+    Object.values(peerConnections.current).forEach((pc) => pc.close());
+    peerConnections.current = {};
 
     // Stop all media tracks
     if (localStreamRef.current) {
@@ -280,7 +361,7 @@ const StreamMeet = () => {
     }
 
     navigate("/streammeet");
-  };
+  }, [navigate]);
 
   // Create room
   const createRoom = async () => {
@@ -289,10 +370,9 @@ const StreamMeet = () => {
       return;
     }
     if (!user) {
-      // Save current URL and redirect to login
       sessionStorage.setItem(
         "redirectAfterLogin",
-        window.location.pathname + window.location.search,
+        "/streammeet/new?mode=" + mode,
       );
       navigate("/login");
       return;
@@ -302,7 +382,8 @@ const StreamMeet = () => {
     try {
       const { data } = await API.post("/streams/room", {
         title:
-          title || `${myUsername}'s ${mode === "meet" ? "Meeting" : "Stream"}`,
+          title ||
+          `${user.username}'s ${mode === "meet" ? "Meeting" : "Stream"}`,
         mode,
       });
 
@@ -313,8 +394,8 @@ const StreamMeet = () => {
 
       socket.emit("join-room", {
         roomId: data.data._id,
-        oderId: myId,
-        username: myUsername,
+        oderId: user._id,
+        username: user.username,
         isHost: true,
       });
 
@@ -332,7 +413,7 @@ const StreamMeet = () => {
 
   // Join existing room
   const joinRoom = async () => {
-    if (!roomId) return;
+    if (!roomId || !user) return;
 
     setIsLoading(true);
     setError("");
@@ -340,7 +421,6 @@ const StreamMeet = () => {
       const { data } = await API.get(`/streams/room/${roomId}`);
       console.log("Joining room:", data.data);
 
-      // Check if room has ended
       if (data.data.hasEnded || !data.data.isLive) {
         setError("This meeting has ended");
         setIsLoading(false);
@@ -349,13 +429,13 @@ const StreamMeet = () => {
 
       setRoomData(data.data);
       setIsJoined(true);
-      const amIHost = user && data.data.streamer?._id === user._id;
+      const amIHost = data.data.streamer?._id === user._id;
       setIsHost(amIHost);
 
       socket.emit("join-room", {
         roomId: data.data._id,
-        oderId: myId,
-        username: myUsername,
+        oderId: user._id,
+        username: user.username,
         isHost: amIHost,
       });
     } catch (err) {
@@ -374,18 +454,16 @@ const StreamMeet = () => {
     try {
       await API.patch(`/streams/${roomData._id}/end`);
       socket.emit("end-room", { roomId: roomData._id });
-      cleanupAndNavigate();
     } catch (err) {
       console.error("Error ending meeting:", err);
-      // Still leave even if API fails
-      cleanupAndNavigate();
     }
+    cleanupAndNavigate();
   };
 
-  // Leave room (for non-hosts)
+  // Leave room
   const leaveRoom = () => {
-    if (roomData) {
-      socket.emit("leave-room", { roomId: roomData._id, oderId: myId });
+    if (roomData && user) {
+      socket.emit("leave-room", { roomId: roomData._id, oderId: user._id });
     }
     cleanupAndNavigate();
   };
@@ -412,18 +490,20 @@ const StreamMeet = () => {
 
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
-      // Stop screen sharing
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
       }
-      // Restore camera
-      await initializeMedia();
-      peerConnections.current.forEach((pc) => {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-        if (sender && localStreamRef.current) {
-          sender.replaceTrack(localStreamRef.current.getVideoTracks()[0]);
-        }
-      });
+      const stream = await initializeMedia();
+      if (stream) {
+        // Replace track in all peer connections
+        const videoTrack = stream.getVideoTracks()[0];
+        Object.values(peerConnections.current).forEach((pc) => {
+          const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+          if (sender && videoTrack) {
+            sender.replaceTrack(videoTrack);
+          }
+        });
+      }
       setIsScreenSharing(false);
     } else {
       try {
@@ -433,12 +513,13 @@ const StreamMeet = () => {
         screenStreamRef.current = screen;
         if (localVideoRef.current) localVideoRef.current.srcObject = screen;
 
-        peerConnections.current.forEach((pc) => {
+        const videoTrack = screen.getVideoTracks()[0];
+        Object.values(peerConnections.current).forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-          if (sender) sender.replaceTrack(screen.getVideoTracks()[0]);
+          if (sender) sender.replaceTrack(videoTrack);
         });
 
-        screen.getVideoTracks()[0].onended = () => toggleScreenShare();
+        videoTrack.onended = () => toggleScreenShare();
         setIsScreenSharing(true);
       } catch (err) {
         console.error("Screen share error:", err);
@@ -458,11 +539,11 @@ const StreamMeet = () => {
 
   const sendMessage = (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !roomData) return;
+    if (!newMessage.trim() || !roomData || !user) return;
     socket.emit("chat-message", {
       roomId: roomData._id,
       message: newMessage,
-      user: { _id: myId, username: myUsername },
+      user: { _id: user._id, username: user.username },
     });
     setNewMessage("");
   };
@@ -476,8 +557,10 @@ const StreamMeet = () => {
 
   // Initialize on mount
   useEffect(() => {
-    initializeMedia().then((success) => {
-      if (success && roomId && roomId !== "new") {
+    if (!user) return;
+
+    initializeMedia().then((stream) => {
+      if (stream && roomId && roomId !== "new") {
         joinRoom();
       }
     });
@@ -487,10 +570,27 @@ const StreamMeet = () => {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [roomId]);
+  }, [roomId, user]);
 
-  // Get participant count
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="meet-setup">
+        <div className="setup-loading">
+          <div className="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!user) {
+    return null;
+  }
+
   const participantCount = participants.length || 1;
+  const remoteStreamEntries = Object.entries(remoteStreams);
 
   // Setup screen (before joining)
   if (!isJoined) {
@@ -503,7 +603,7 @@ const StreamMeet = () => {
               {!videoEnabled && (
                 <div className="video-off-overlay">
                   <div className="avatar-circle">
-                    {myUsername.charAt(0).toUpperCase()}
+                    {user.username?.charAt(0).toUpperCase() || "U"}
                   </div>
                 </div>
               )}
@@ -527,9 +627,6 @@ const StreamMeet = () => {
                 onClick={toggleAudio}
                 className={`preview-btn ${!audioEnabled ? "off" : ""}`}
                 disabled={!setupComplete}
-                title={
-                  audioEnabled ? "Turn off microphone" : "Turn on microphone"
-                }
               >
                 {audioEnabled ? <FiMic size={20} /> : <FiMicOff size={20} />}
               </button>
@@ -537,7 +634,6 @@ const StreamMeet = () => {
                 onClick={toggleVideo}
                 className={`preview-btn ${!videoEnabled ? "off" : ""}`}
                 disabled={!setupComplete}
-                title={videoEnabled ? "Turn off camera" : "Turn on camera"}
               >
                 {videoEnabled ? (
                   <FiVideo size={20} />
@@ -556,11 +652,11 @@ const StreamMeet = () => {
             </h1>
             <p className="meet-subtitle">
               {roomId && roomId !== "new"
-                ? "Your video and audio are off by default"
+                ? "Choose your audio and video settings"
                 : "Create a new meeting room"}
             </p>
 
-            {mode === "stream" && !roomId && (
+            {mode === "stream" && (!roomId || roomId === "new") && (
               <input
                 type="text"
                 placeholder="Enter stream title"
@@ -606,13 +702,13 @@ const StreamMeet = () => {
         >
           {/* Local video */}
           <div
-            className={`meet-video-tile ${participantCount === 1 ? "solo" : ""}`}
+            className={`meet-video-tile ${remoteStreamEntries.length === 0 ? "solo" : ""}`}
           >
             <video ref={localVideoRef} autoPlay muted playsInline />
             {!videoEnabled && (
               <div className="video-off-overlay">
                 <div className="avatar-circle large">
-                  {myUsername.charAt(0).toUpperCase()}
+                  {user.username?.charAt(0).toUpperCase() || "U"}
                 </div>
               </div>
             )}
@@ -626,7 +722,7 @@ const StreamMeet = () => {
           </div>
 
           {/* Remote videos */}
-          {Array.from(remoteStreams.entries()).map(([oderId, stream]) => {
+          {remoteStreamEntries.map(([oderId, stream]) => {
             const participant = participants.find((p) => p.oderId === oderId);
             return (
               <RemoteVideo
@@ -650,23 +746,18 @@ const StreamMeet = () => {
             <button
               onClick={toggleAudio}
               className={`ctrl-btn ${!audioEnabled ? "off" : ""}`}
-              title={
-                audioEnabled ? "Turn off microphone" : "Turn on microphone"
-              }
             >
               {audioEnabled ? <FiMic size={22} /> : <FiMicOff size={22} />}
             </button>
             <button
               onClick={toggleVideo}
               className={`ctrl-btn ${!videoEnabled ? "off" : ""}`}
-              title={videoEnabled ? "Turn off camera" : "Turn on camera"}
             >
               {videoEnabled ? <FiVideo size={22} /> : <FiVideoOff size={22} />}
             </button>
             <button
               onClick={toggleScreenShare}
               className={`ctrl-btn ${isScreenSharing ? "active" : ""}`}
-              title={isScreenSharing ? "Stop sharing" : "Share screen"}
             >
               <FiMonitor size={22} />
             </button>
@@ -674,7 +765,6 @@ const StreamMeet = () => {
               onClick={isHost ? endMeeting : leaveRoom}
               className="ctrl-btn leave"
               disabled={isEnding}
-              title={isHost ? "End meeting for all" : "Leave meeting"}
             >
               <FiPhoneOff size={22} />
             </button>
@@ -687,7 +777,6 @@ const StreamMeet = () => {
                 setShowChat(false);
               }}
               className={`ctrl-btn-sm ${showParticipants ? "active" : ""}`}
-              title="Participants"
             >
               <FiUsers size={20} />
               <span>{participantCount}</span>
@@ -698,22 +787,13 @@ const StreamMeet = () => {
                 setShowParticipants(false);
               }}
               className={`ctrl-btn-sm ${showChat ? "active" : ""}`}
-              title="Chat"
             >
               <FiMessageSquare size={20} />
             </button>
-            <button
-              onClick={copyRoomLink}
-              className="ctrl-btn-sm"
-              title="Copy meeting link"
-            >
+            <button onClick={copyRoomLink} className="ctrl-btn-sm">
               {copied ? <FiCheck size={20} /> : <FiCopy size={20} />}
             </button>
-            <button
-              onClick={toggleFullscreen}
-              className="ctrl-btn-sm"
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-            >
+            <button onClick={toggleFullscreen} className="ctrl-btn-sm">
               {isFullscreen ? (
                 <FiMinimize size={20} />
               ) : (
@@ -749,7 +829,7 @@ const StreamMeet = () => {
                   </div>
                   <div className="participant-info">
                     <span className="participant-name">
-                      {p.username} {p.oderId === myId && "(You)"}
+                      {p.username} {p.oderId === user._id && "(You)"}
                     </span>
                     {p.isHost && <span className="host-tag">Host</span>}
                   </div>
@@ -770,7 +850,7 @@ const StreamMeet = () => {
                   chatMessages.map((msg, i) => (
                     <div
                       key={i}
-                      className={`chat-msg ${msg.user?._id === myId ? "own" : ""}`}
+                      className={`chat-msg ${msg.user?._id === user._id ? "own" : ""}`}
                     >
                       <span className="msg-sender">{msg.user?.username}</span>
                       <span className="msg-text">{msg.message}</span>
