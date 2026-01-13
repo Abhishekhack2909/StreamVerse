@@ -27,22 +27,50 @@ export const AuthProvider = ({ children }) => {
     // Handle OAuth callback - check for hash fragment with access token
     const handleOAuthCallback = async () => {
       const hash = window.location.hash;
-      if (hash && hash.includes('access_token')) {
-        // Remove the hash from URL
-        window.history.replaceState(null, '', window.location.pathname);
+      console.log('Current URL hash:', hash ? 'Has hash' : 'No hash');
+      
+      if (hash && (hash.includes('access_token') || hash.includes('error'))) {
+        console.log('Processing OAuth callback...');
+        try {
+          // Parse the hash fragment to extract tokens
+          const hashParams = new URLSearchParams(hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          
+          if (accessToken) {
+            console.log('Found access token, setting session...');
+            // Set the session manually using the tokens from the URL
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            
+            if (error) {
+              console.error('Error setting session:', error);
+            } else {
+              console.log('Session set successfully:', data.user?.email);
+            }
+          }
+          
+          // Clean up the URL
+          window.history.replaceState(null, '', window.location.pathname);
+        } catch (err) {
+          console.error('OAuth callback error:', err);
+        }
       }
     };
 
-    handleOAuthCallback();
-    
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Session check:', session ? 'Found' : 'None');
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserProfile();
-      }
-      setLoading(false);
+    // Process OAuth callback first, then check session
+    handleOAuthCallback().then(() => {
+      // Check active sessions and sets the user
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        console.log('Session check:', session ? 'Found - ' + session.user?.email : 'None');
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchUserProfile();
+        }
+        setLoading(false);
+      });
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
