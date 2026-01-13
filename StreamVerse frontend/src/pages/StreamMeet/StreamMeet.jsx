@@ -263,6 +263,25 @@ const StreamMeet = () => {
     }
   }, []);
 
+  // Cleanup function - MUST be defined before the useEffect that uses it
+  const cleanupAndNavigate = useCallback(() => {
+    // Close all peer connections
+    Object.values(peerConnections.current).forEach((pc) => pc.close());
+    peerConnections.current = {};
+
+    // Stop all media tracks
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+    }
+
+    navigate("/streammeet");
+  }, [navigate]);
+
   // Socket event handlers
   useEffect(() => {
     if (!user) return;
@@ -371,25 +390,6 @@ const StreamMeet = () => {
     handleIceCandidate,
     cleanupAndNavigate,
   ]);
-
-  // Cleanup function
-  const cleanupAndNavigate = useCallback(() => {
-    // Close all peer connections
-    Object.values(peerConnections.current).forEach((pc) => pc.close());
-    peerConnections.current = {};
-
-    // Stop all media tracks
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
-      localStreamRef.current = null;
-    }
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((track) => track.stop());
-      screenStreamRef.current = null;
-    }
-
-    navigate("/streammeet");
-  }, [navigate]);
 
   // Pre-create room to get meeting link (like Google Meet)
   const preCreateRoom = async () => {
