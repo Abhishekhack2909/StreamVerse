@@ -125,6 +125,21 @@ const initSocketServer = (httpServer) => {
       }
     });
 
+    // End room (host only)
+    socket.on("end-room", async ({ roomId }) => {
+      console.log(`Host ending room ${roomId}`);
+      const room = rooms.get(roomId);
+      if (room) {
+        io.to(roomId).emit("room-ended");
+        try { 
+          await Stream.findByIdAndUpdate(roomId, { isLive: false, endedAt: new Date(), viewers: 0 }); 
+        } catch (e) {
+          console.error('Error updating stream:', e);
+        }
+        rooms.delete(roomId);
+      }
+    });
+
     // Chat
     socket.on("chat-message", ({ roomId, streamId, message, user }) => {
       const targetRoom = roomId || streamId;

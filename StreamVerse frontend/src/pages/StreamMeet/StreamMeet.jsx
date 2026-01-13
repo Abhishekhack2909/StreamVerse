@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { 
   FiVideo, FiVideoOff, FiMic, FiMicOff, FiMonitor, 
-  FiPhoneOff, FiUsers, FiMessageSquare, FiCopy, FiCheck
+  FiPhoneOff, FiUsers, FiMessageSquare, FiCopy, FiCheck,
+  FiMoreVertical, FiMaximize, FiMinimize, FiSettings
 } from 'react-icons/fi';
 import { socket, connectSocket } from '../../lib/socket';
 import API from '../../api/axios';
@@ -13,6 +14,7 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
   ],
 };
 
@@ -48,6 +50,9 @@ const StreamMeet = () => {
   const [title, setTitle] = useState('');
   const [setupComplete, setSetupComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isHost, setIsHost] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
 
   useEffect(() => {
     roomDataRef.current = roomData;
@@ -85,7 +90,6 @@ const StreamMeet = () => {
     }
   }, []);
 
-
   // Socket events
   useEffect(() => {
     connectSocket();
@@ -93,7 +97,6 @@ const StreamMeet = () => {
     socket.on('room-participants', ({ participants: list }) => {
       console.log('Room participants:', list);
       setParticipants(list);
-      // Create peer connections for existing participants
       list.forEach(p => {
         if (p.oderId !== user?._id && localStreamRef.current) {
           createPeerConnection(p.oderId, true);
@@ -153,8 +156,8 @@ const StreamMeet = () => {
     });
 
     socket.on('room-ended', () => {
-      alert('The session has ended');
-      navigate('/streammeet');
+      alert('The meeting has ended');
+      cleanupAndNavigate();
     });
 
     return () => {
@@ -232,6 +235,24 @@ const StreamMeet = () => {
     });
   };
 
+  // Cleanup function
+  const cleanupAndNavigate = () => {
+    // Close all peer connections
+    peerConnections.current.forEach(pc => pc.close());
+    peerConnections.current.clear();
+
+    // Stop all media tracks
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current = null;
+    }
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+
+    navigate('/streammeet');
+  };
 
   // Create room
   const createRoom = async () => {
@@ -254,6 +275,7 @@ const StreamMeet = () => {
       console.log('Room created:', data.data);
       setRoomData(data.data);
       setIsJoined(true);
+      setIsHost(true);
       
       socket.emit('join-room', { 
         roomId: data.data._id, 
@@ -280,12 +302,13 @@ const StreamMeet = () => {
       console.log('Joining room:', data.data);
       setRoomData(data.data);
       setIsJoined(true);
+      setIsHost(data.data.streamer?._id === user?._id);
       
       socket.emit('join-room', { 
         roomId: data.data._id, 
         oderId: user?._id || socket.id,
         username: user?.username || 'Guest',
-        isHost: false,
+        isHost: data.data.streamer?._id === user?._id,
       });
     } catch (err) {
       console.error('Join error:', err);
@@ -295,23 +318,28 @@ const StreamMeet = () => {
     }
   };
 
-  // Leave room
+  // End meeting (host only)
+  const endMeeting = async () => {
+    if (!isHost || !roomData) return;
+    
+    setIsEnding(true);
+    try {
+      await API.patch(`/streams/${roomData._id}/end`);
+      socket.emit('end-room', { roomId: roomData._id });
+      cleanupAndNavigate();
+    } catch (err) {
+      console.error('Error ending meeting:', err);
+      // Still leave even if API fails
+      cleanupAndNavigate();
+    }
+  };
+
+  // Leave room (for non-hosts)
   const leaveRoom = () => {
     if (roomData) {
       socket.emit('leave-room', { roomId: roomData._id, oderId: user?._id });
     }
-
-    peerConnections.current.forEach(pc => pc.close());
-    peerConnections.current.clear();
-
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-    }
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach(track => track.stop());
-    }
-
-    navigate('/streammeet');
+    cleanupAndNavigate();
   };
 
   const toggleVideo = () => {
@@ -336,9 +364,11 @@ const StreamMeet = () => {
 
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
+      // Stop screen sharing
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach(track => track.stop());
       }
+      // Restore camera
       await initializeMedia();
       peerConnections.current.forEach(pc => {
         const sender = pc.getSenders().find(s => s.track?.kind === 'video');
@@ -363,6 +393,16 @@ const StreamMeet = () => {
       } catch (err) {
         console.error('Screen share error:', err);
       }
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
     }
   };
 
@@ -399,61 +439,89 @@ const StreamMeet = () => {
     };
   }, [roomId]);
 
+  // Get participant count
+  const participantCount = participants.length || 1;
 
   // Setup screen (before joining)
   if (!isJoined) {
     return (
-      <div className="streammeet-setup">
-        <div className="setup-container">
-          <div className="setup-preview">
-            <video ref={localVideoRef} autoPlay muted playsInline />
-            {!setupComplete && !mediaError && (
-              <div className="setup-loading">
-                <div className="spinner"></div>
-                <p>Accessing camera...</p>
-              </div>
-            )}
-            {mediaError && (
-              <div className="setup-error">
-                <p>{mediaError}</p>
-                <button onClick={initializeMedia} className="retry-btn">Try Again</button>
-              </div>
-            )}
+      <div className="meet-setup">
+        <div className="meet-setup-container">
+          <div className="meet-preview-section">
+            <div className="meet-preview">
+              <video ref={localVideoRef} autoPlay muted playsInline />
+              {!videoEnabled && (
+                <div className="video-off-overlay">
+                  <div className="avatar-circle">
+                    {user?.username?.charAt(0).toUpperCase() || 'G'}
+                  </div>
+                </div>
+              )}
+              {!setupComplete && !mediaError && (
+                <div className="setup-loading">
+                  <div className="spinner"></div>
+                  <p>Accessing camera...</p>
+                </div>
+              )}
+              {mediaError && (
+                <div className="setup-error">
+                  <p>{mediaError}</p>
+                  <button onClick={initializeMedia} className="retry-btn">Try Again</button>
+                </div>
+              )}
+            </div>
+            <div className="preview-controls">
+              <button 
+                onClick={toggleAudio} 
+                className={`preview-btn ${!audioEnabled ? 'off' : ''}`} 
+                disabled={!setupComplete}
+                title={audioEnabled ? 'Turn off microphone' : 'Turn on microphone'}
+              >
+                {audioEnabled ? <FiMic size={20} /> : <FiMicOff size={20} />}
+              </button>
+              <button 
+                onClick={toggleVideo} 
+                className={`preview-btn ${!videoEnabled ? 'off' : ''}`} 
+                disabled={!setupComplete}
+                title={videoEnabled ? 'Turn off camera' : 'Turn on camera'}
+              >
+                {videoEnabled ? <FiVideo size={20} /> : <FiVideoOff size={20} />}
+              </button>
+            </div>
           </div>
 
-          <div className="setup-controls">
-            <h1>{roomId && roomId !== 'new' ? 'Join Meeting' : (mode === 'meet' ? 'Start Meeting' : 'Go Live')}</h1>
+          <div className="meet-join-section">
+            <h1>{roomId && roomId !== 'new' ? 'Ready to join?' : 'Start a meeting'}</h1>
+            <p className="meet-subtitle">
+              {roomId && roomId !== 'new' 
+                ? 'Your video and audio are off by default' 
+                : 'Create a new meeting room'}
+            </p>
             
             {mode === 'stream' && !roomId && (
               <input
                 type="text"
-                placeholder="Stream title"
+                placeholder="Enter stream title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="setup-input"
+                className="meet-input"
               />
             )}
 
-            <div className="media-controls">
-              <button onClick={toggleVideo} className={`media-btn ${!videoEnabled ? 'off' : ''}`} disabled={!setupComplete}>
-                {videoEnabled ? <FiVideo /> : <FiVideoOff />}
+            {error && <div className="meet-error">{error}</div>}
+
+            <div className="meet-actions">
+              <button 
+                onClick={roomId && roomId !== 'new' ? joinRoom : createRoom} 
+                className="meet-join-btn"
+                disabled={!setupComplete || isLoading}
+              >
+                {isLoading ? 'Please wait...' : (roomId && roomId !== 'new' ? 'Join now' : 'Start meeting')}
               </button>
-              <button onClick={toggleAudio} className={`media-btn ${!audioEnabled ? 'off' : ''}`} disabled={!setupComplete}>
-                {audioEnabled ? <FiMic /> : <FiMicOff />}
+              <button onClick={() => navigate('/streammeet')} className="meet-back-btn">
+                Cancel
               </button>
             </div>
-
-            {error && <div className="error-message">{error}</div>}
-
-            <button 
-              onClick={roomId && roomId !== 'new' ? joinRoom : createRoom} 
-              className="join-btn"
-              disabled={!setupComplete || isLoading}
-            >
-              {isLoading ? 'Please wait...' : (roomId && roomId !== 'new' ? 'Join Now' : (mode === 'meet' ? 'Start Meeting' : 'Go Live'))}
-            </button>
-
-            <button onClick={() => navigate('/streammeet')} className="back-btn">Back</button>
           </div>
         </div>
       </div>
@@ -462,100 +530,171 @@ const StreamMeet = () => {
 
   // Main room view
   return (
-    <div className="streammeet-room">
-      <div className="room-main">
-        <div className={`video-grid participants-${Math.min(remoteStreams.size + 1, 4)}`}>
-          <div className="video-tile local">
+    <div className={`meet-room ${isFullscreen ? 'fullscreen' : ''}`}>
+      <div className="meet-main">
+        <div className={`meet-video-grid grid-${Math.min(participantCount, 4)}`}>
+          {/* Local video */}
+          <div className={`meet-video-tile ${participantCount === 1 ? 'solo' : ''}`}>
             <video ref={localVideoRef} autoPlay muted playsInline />
-            <div className="tile-info">
-              <span>{user?.username || 'You'} (You)</span>
-              {!videoEnabled && <FiVideoOff />}
-              {!audioEnabled && <FiMicOff />}
+            {!videoEnabled && (
+              <div className="video-off-overlay">
+                <div className="avatar-circle large">
+                  {user?.username?.charAt(0).toUpperCase() || 'Y'}
+                </div>
+              </div>
+            )}
+            <div className="tile-label">
+              <span>You {isHost && '(Host)'}</span>
+              <div className="tile-icons">
+                {!audioEnabled && <FiMicOff size={14} />}
+                {!videoEnabled && <FiVideoOff size={14} />}
+              </div>
             </div>
           </div>
 
-          {Array.from(remoteStreams.entries()).map(([oderId, stream]) => (
-            <RemoteVideo key={oderId} oderId={oderId} stream={stream} participants={participants} />
-          ))}
+          {/* Remote videos */}
+          {Array.from(remoteStreams.entries()).map(([oderId, stream]) => {
+            const participant = participants.find(p => p.oderId === oderId);
+            return (
+              <RemoteVideo 
+                key={oderId} 
+                oderId={oderId} 
+                stream={stream} 
+                participant={participant}
+              />
+            );
+          })}
         </div>
 
-        <div className="controls-bar">
-          <div className="controls-left">
-            <span className="room-info">{roomData?.title || 'Meeting'}</span>
+        {/* Bottom controls */}
+        <div className="meet-controls">
+          <div className="controls-info">
+            <span className="meeting-title">{roomData?.title || 'Meeting'}</span>
           </div>
 
-          <div className="controls-center">
-            <button onClick={toggleAudio} className={`control-btn ${!audioEnabled ? 'off' : ''}`} title="Toggle Mic">
-              {audioEnabled ? <FiMic /> : <FiMicOff />}
+          <div className="controls-main">
+            <button 
+              onClick={toggleAudio} 
+              className={`ctrl-btn ${!audioEnabled ? 'off' : ''}`}
+              title={audioEnabled ? 'Turn off microphone' : 'Turn on microphone'}
+            >
+              {audioEnabled ? <FiMic size={22} /> : <FiMicOff size={22} />}
             </button>
-            <button onClick={toggleVideo} className={`control-btn ${!videoEnabled ? 'off' : ''}`} title="Toggle Camera">
-              {videoEnabled ? <FiVideo /> : <FiVideoOff />}
+            <button 
+              onClick={toggleVideo} 
+              className={`ctrl-btn ${!videoEnabled ? 'off' : ''}`}
+              title={videoEnabled ? 'Turn off camera' : 'Turn on camera'}
+            >
+              {videoEnabled ? <FiVideo size={22} /> : <FiVideoOff size={22} />}
             </button>
-            <button onClick={toggleScreenShare} className={`control-btn ${isScreenSharing ? 'active' : ''}`} title="Share Screen">
-              <FiMonitor />
+            <button 
+              onClick={toggleScreenShare} 
+              className={`ctrl-btn ${isScreenSharing ? 'active' : ''}`}
+              title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+            >
+              <FiMonitor size={22} />
             </button>
-            <button onClick={leaveRoom} className="control-btn leave" title="Leave">
-              <FiPhoneOff />
+            <button 
+              onClick={isHost ? endMeeting : leaveRoom} 
+              className="ctrl-btn leave"
+              disabled={isEnding}
+              title={isHost ? 'End meeting for all' : 'Leave meeting'}
+            >
+              <FiPhoneOff size={22} />
             </button>
           </div>
 
-          <div className="controls-right">
-            <button onClick={() => setShowParticipants(!showParticipants)} className={`control-btn ${showParticipants ? 'active' : ''}`}>
-              <FiUsers /> <span className="btn-label">{participants.length}</span>
+          <div className="controls-extra">
+            <button 
+              onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); }} 
+              className={`ctrl-btn-sm ${showParticipants ? 'active' : ''}`}
+              title="Participants"
+            >
+              <FiUsers size={20} />
+              <span>{participantCount}</span>
             </button>
-            <button onClick={() => setShowChat(!showChat)} className={`control-btn ${showChat ? 'active' : ''}`}>
-              <FiMessageSquare />
+            <button 
+              onClick={() => { setShowChat(!showChat); setShowParticipants(false); }} 
+              className={`ctrl-btn-sm ${showChat ? 'active' : ''}`}
+              title="Chat"
+            >
+              <FiMessageSquare size={20} />
             </button>
-            <button onClick={copyRoomLink} className="control-btn" title="Copy Link">
-              {copied ? <FiCheck /> : <FiCopy />}
+            <button 
+              onClick={copyRoomLink} 
+              className="ctrl-btn-sm"
+              title="Copy meeting link"
+            >
+              {copied ? <FiCheck size={20} /> : <FiCopy size={20} />}
+            </button>
+            <button 
+              onClick={toggleFullscreen} 
+              className="ctrl-btn-sm"
+              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            >
+              {isFullscreen ? <FiMinimize size={20} /> : <FiMaximize size={20} />}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Side panel */}
       {(showChat || showParticipants) && (
-        <div className="side-panel">
-          <div className="panel-tabs">
-            <button className={showChat ? 'active' : ''} onClick={() => { setShowChat(true); setShowParticipants(false); }}>
-              Chat
-            </button>
-            <button className={showParticipants ? 'active' : ''} onClick={() => { setShowParticipants(true); setShowChat(false); }}>
-              People ({participants.length})
+        <div className="meet-sidebar">
+          <div className="sidebar-header">
+            <h3>{showChat ? 'In-call messages' : 'People'}</h3>
+            <button onClick={() => { setShowChat(false); setShowParticipants(false); }} className="close-sidebar">
+              ×
             </button>
           </div>
 
-          {showChat && (
-            <div className="chat-panel">
-              <div className="chat-messages">
-                {chatMessages.length === 0 && <p className="no-messages">No messages yet</p>}
-                {chatMessages.map((msg, i) => (
-                  <div key={i} className="chat-message">
-                    <span className="chat-user">{msg.user?.username}</span>
-                    <span className="chat-text">{msg.message}</span>
+          {showParticipants && (
+            <div className="participants-list">
+              {participants.map((p, i) => (
+                <div key={i} className="participant-item">
+                  <div className="participant-avatar">
+                    {p.username?.charAt(0).toUpperCase()}
                   </div>
-                ))}
+                  <div className="participant-info">
+                    <span className="participant-name">
+                      {p.username} {p.oderId === user?._id && '(You)'}
+                    </span>
+                    {p.isHost && <span className="host-tag">Host</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showChat && (
+            <div className="chat-container">
+              <div className="chat-messages">
+                {chatMessages.length === 0 ? (
+                  <div className="no-messages">
+                    <FiMessageSquare size={32} />
+                    <p>Messages can only be seen by people in the call</p>
+                  </div>
+                ) : (
+                  chatMessages.map((msg, i) => (
+                    <div key={i} className={`chat-msg ${msg.user?._id === user?._id ? 'own' : ''}`}>
+                      <span className="msg-sender">{msg.user?.username}</span>
+                      <span className="msg-text">{msg.message}</span>
+                      <span className="msg-time">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
-              <form onSubmit={sendMessage} className="chat-input">
+              <form onSubmit={sendMessage} className="chat-form">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Send a message..."
+                  placeholder="Send a message to everyone"
                 />
-                <button type="submit">Send</button>
+                <button type="submit" disabled={!newMessage.trim()}>Send</button>
               </form>
-            </div>
-          )}
-
-          {showParticipants && (
-            <div className="participants-panel">
-              {participants.map((p, i) => (
-                <div key={i} className="participant">
-                  <div className="participant-avatar">{p.username?.charAt(0).toUpperCase()}</div>
-                  <span>{p.username}</span>
-                  {p.isHost && <span className="host-badge">Host</span>}
-                </div>
-              ))}
             </div>
           )}
         </div>
@@ -564,9 +703,9 @@ const StreamMeet = () => {
   );
 };
 
-const RemoteVideo = ({ oderId, stream, participants }) => {
+// Remote video component
+const RemoteVideo = ({ oderId, stream, participant }) => {
   const videoRef = useRef(null);
-  const participant = participants.find(p => p.oderId === oderId);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -575,10 +714,10 @@ const RemoteVideo = ({ oderId, stream, participants }) => {
   }, [stream]);
 
   return (
-    <div className="video-tile">
+    <div className="meet-video-tile">
       <video ref={videoRef} autoPlay playsInline />
-      <div className="tile-info">
-        <span>{participant?.username || 'Participant'}</span>
+      <div className="tile-label">
+        <span>{participant?.username || 'Participant'} {participant?.isHost && '(Host)'}</span>
       </div>
     </div>
   );
