@@ -5,7 +5,8 @@ import { supabase } from "../lib/supabase";
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
 // Log the API URL for debugging (will show in browser console)
-console.log("API Base URL:", API_BASE_URL);
+console.log("🔗 API Base URL:", API_BASE_URL);
+console.log("📦 All env vars:", import.meta.env);
 
 const API = axios.create({
   baseURL: API_BASE_URL,
