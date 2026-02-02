@@ -4,34 +4,10 @@ import cookieParser from "cookie-parser";
 
 const app = express();
 
-// CORS configuration for production
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://localhost:3000",
-  process.env.FRONTEND_URL, // Vercel URL
-].filter(Boolean);
-
+// CORS configuration - allow all origins for now
 app.use(
   cors({
-    origin: function (origin, callback) {
-      console.log("🌐 CORS Request from origin:", origin);
-      console.log("📋 Allowed origins:", allowedOrigins);
-      
-      // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        console.log("✅ Origin allowed from list");
-        return callback(null, true);
-      }
-      // Allow any vercel.app subdomain
-      if (origin.endsWith('.vercel.app')) {
-        console.log("✅ Origin allowed as vercel.app subdomain");
-        return callback(null, true);
-      }
-      console.log("❌ Origin blocked by CORS");
-      return callback(new Error('Not allowed by CORS'));
-    },
+    origin: true, // Allow all origins
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
