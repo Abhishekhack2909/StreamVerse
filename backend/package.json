@@ -1,7 +1,7 @@
 {
   "name": "streamverse-backend",
   "version": "1.0.0",
-  "description": "StreamVerse Backend API",
+  "description": "StreamVerse - Video streaming platform with live streaming and meetings",
   "keywords": ["javascript", "streaming", "video"],
   "license": "ISC",
   "author": "Abhishek Tripathi",
