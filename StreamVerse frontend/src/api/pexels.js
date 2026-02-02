@@ -1,9 +1,9 @@
 import axios from "axios";
 
-const PEXELS_API_KEY = import.meta.env.VITE_PEXELS_API_KEY;
+const PEXELS_API_KEY = import.meta.env.VITE_PEXELS_API_KEY || "sdMJksR8agtu7k2o8WsBugeJv55AmmyJbBmlGvtKQw1WAbLZ26vKmgNg";
 
 // Debug log
-console.log("Pexels API Key exists:", !!PEXELS_API_KEY);
+console.log("Pexels API Key exists:", !!PEXELS_API_KEY, "Length:", PEXELS_API_KEY?.length);
 
 const pexelsApi = axios.create({
   baseURL: "https://api.pexels.com",
