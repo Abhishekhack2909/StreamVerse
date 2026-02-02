@@ -1,9 +1,9 @@
-import axios from 'axios';
+import axios from "axios";
 
 const PEXELS_API_KEY = import.meta.env.VITE_PEXELS_API_KEY;
 
 const pexelsApi = axios.create({
-  baseURL: 'https://api.pexels.com',
+  baseURL: "https://api.pexels.com",
   headers: {
     Authorization: PEXELS_API_KEY,
   },
@@ -12,12 +12,12 @@ const pexelsApi = axios.create({
 // Get popular videos
 export const getPopularVideos = async (perPage = 12) => {
   try {
-    const response = await pexelsApi.get('/videos/popular', {
+    const response = await pexelsApi.get("/videos/popular", {
       params: { per_page: perPage },
     });
     return response.data.videos.map(formatVideo);
   } catch (error) {
-    console.error('Error fetching Pexels videos:', error);
+    console.error("Error fetching Pexels videos:", error);
     return [];
   }
 };
@@ -25,12 +25,12 @@ export const getPopularVideos = async (perPage = 12) => {
 // Search videos by query
 export const searchVideos = async (query, perPage = 12) => {
   try {
-    const response = await pexelsApi.get('/videos/search', {
+    const response = await pexelsApi.get("/videos/search", {
       params: { query, per_page: perPage },
     });
     return response.data.videos.map(formatVideo);
   } catch (error) {
-    console.error('Error searching Pexels videos:', error);
+    console.error("Error searching Pexels videos:", error);
     return [];
   }
 };
@@ -38,9 +38,10 @@ export const searchVideos = async (query, perPage = 12) => {
 // Format Pexels video to match your app's video format
 const formatVideo = (video) => {
   // Get the best quality video file (HD preferred)
-  const videoFile = video.video_files.find(f => f.quality === 'hd') 
-    || video.video_files.find(f => f.quality === 'sd')
-    || video.video_files[0];
+  const videoFile =
+    video.video_files.find((f) => f.quality === "hd") ||
+    video.video_files.find((f) => f.quality === "sd") ||
+    video.video_files[0];
 
   return {
     _id: `pexels-${video.id}`,
@@ -53,7 +54,9 @@ const formatVideo = (video) => {
     owner: {
       _id: `pexels-user-${video.user.id}`,
       username: video.user.name,
-      avatar: video.user.url ? `https://ui-avatars.com/api/?name=${encodeURIComponent(video.user.name)}&background=random` : null,
+      avatar: video.user.url
+        ? `https://ui-avatars.com/api/?name=${encodeURIComponent(video.user.name)}&background=random`
+        : null,
     },
     createdAt: new Date().toISOString(),
     isPexels: true, // Flag to identify Pexels videos
