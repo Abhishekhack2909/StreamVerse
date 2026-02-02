@@ -130,18 +130,16 @@
 }
 
 .hero-btn-outline {
-  background: rgba(255,255,255,0.05);
-  color: #ffffff;
-  border: 2px solid rgba(255,255,255,0.3);
-  backdrop-filter: blur(10px);
+  background: linear-gradient(135deg, #00ff88, #00cc6a);
+  color: #000000;
+  border: 2px solid transparent;
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
 }
 
 .hero-btn-outline:hover {
-  background: rgba(255,255,255,0.1);
-  border-color: #00ffff;
-  color: #00ffff;
+  background: linear-gradient(135deg, #00ff88, #44ffaa);
   transform: translateY(-2px);
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+  box-shadow: 0 0 30px rgba(0, 255, 136, 0.5), 0 10px 30px rgba(0, 255, 136, 0.2);
 }
 
 /* Sections */
