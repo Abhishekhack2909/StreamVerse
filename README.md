@@ -18,6 +18,7 @@
 ## ✨ Features
 
 ### 🎥 Video Streaming
+
 - **Upload & Share** - Upload videos with thumbnails and descriptions
 - **Smart Feed** - Personalized video recommendations
 - **Categories** - Browse by Gaming, Music, News, Sports, and more
@@ -25,12 +26,14 @@
 - **Watch History** - Track your viewing history
 
 ### 📺 Live Streaming
+
 - **Go Live** - Stream to your audience in real-time
 - **Live Chat** - Interact with viewers during streams
 - **Stream Management** - Start, pause, and end streams easily
 - **Viewer Count** - See how many people are watching
 
 ### 🎤 StreamMeet (Video Conferencing)
+
 - **Video Calls** - High-quality peer-to-peer video calls
 - **Screen Sharing** - Share your screen with participants
 - **Chat** - In-meeting text chat
@@ -38,6 +41,7 @@
 - **Meeting Links** - Share meeting links easily
 
 ### 👤 User Features
+
 - **Authentication** - Secure login with Supabase Auth
 - **Channels** - Create and customize your channel
 - **Subscriptions** - Subscribe to your favorite creators
@@ -45,6 +49,7 @@
 - **Profile Management** - Edit profile, avatar, and cover image
 
 ### 🎨 Design
+
 - **Modern UI** - Clean, minimalist black/white/grey theme
 - **Responsive** - Works perfectly on desktop, tablet, and mobile
 - **Dark Mode** - Easy on the eyes
@@ -55,6 +60,7 @@
 ## 🛠 Tech Stack
 
 ### Frontend
+
 - **React 18** - Modern UI library
 - **Vite** - Lightning-fast build tool
 - **React Router** - Client-side routing
@@ -63,6 +69,7 @@
 - **React Icons** - Beautiful icons
 
 ### Backend
+
 - **Node.js** - JavaScript runtime
 - **Express** - Web framework
 - **MongoDB** - NoSQL database
@@ -72,11 +79,13 @@
 - **Cloudinary** - Media storage & CDN
 
 ### Real-Time Features
+
 - **WebRTC** - Peer-to-peer video/audio
 - **Socket.io** - Real-time messaging
 - **STUN/TURN** - NAT traversal for video calls
 
 ### Deployment
+
 - **Vercel** - Frontend hosting
 - **Render** - Backend hosting
 - **MongoDB Atlas** - Database hosting
@@ -87,12 +96,14 @@
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js 18+ installed
 - MongoDB Atlas account
 - Supabase account
 - Cloudinary account
 
 ### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/Abhishekhack2909/StreamVerse.git
 cd StreamVerse
@@ -106,6 +117,7 @@ npm install
 ```
 
 Create `backend/.env`:
+
 ```env
 PORT=8000
 MONGODB_URI=your_mongodb_connection_string
@@ -119,6 +131,7 @@ FRONTEND_URL=http://localhost:5173
 ```
 
 Start backend:
+
 ```bash
 npm run dev
 ```
@@ -131,6 +144,7 @@ npm install
 ```
 
 Create `StreamVerse frontend/.env`:
+
 ```env
 VITE_API_URL=http://localhost:8000/api/v1
 VITE_SOCKET_URL=http://localhost:8000
@@ -139,6 +153,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 Start frontend:
+
 ```bash
 npm run dev
 ```
@@ -206,18 +221,21 @@ StreamVerse/
 ## 🔑 Key Features Explained
 
 ### Video Upload Flow
+
 1. User selects video file and thumbnail
 2. Files uploaded to Cloudinary
 3. Video metadata saved to MongoDB
 4. Video appears in feed
 
 ### Live Streaming Flow
+
 1. User clicks "Go Live"
 2. WebRTC connection established
 3. Stream broadcasted via Socket.io
 4. Viewers join and see live stream
 
 ### StreamMeet Flow
+
 1. Host creates meeting room
 2. Generates shareable link
 3. Participants join via link
@@ -268,6 +286,7 @@ This project is licensed under the ISC License.
 ## 📞 Support
 
 If you have any questions or need help, please:
+
 - Open an [issue](https://github.com/Abhishekhack2909/StreamVerse/issues)
 - Email: your.email@example.com
 
@@ -276,11 +295,13 @@ If you have any questions or need help, please:
 ## ⚠️ Important Notes
 
 ### Supabase Free Tier
+
 - Projects pause after 7 days of inactivity
 - Visit dashboard weekly to keep active
 - Or upgrade to Pro plan
 
 ### Render Free Tier
+
 - Services sleep after 15 minutes of inactivity
 - First request after sleep takes ~30 seconds
 - Consider upgrading for production use
