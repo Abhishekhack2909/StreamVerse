@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiUsers, FiRadio, FiVideo, FiUpload, FiPlay } from 'react-icons/fi';
+import { FiUsers, FiRadio, FiVideo, FiUpload, FiPlay, FiGlobe } from 'react-icons/fi';
 import API from '../../api/axios';
+import { getPopularVideos } from '../../api/pexels';
 import VideoGrid from '../../components/Video/VideoGrid';
 import { useAuth } from '../../context/AuthContext';
 import './Home.css';
@@ -14,6 +15,7 @@ const categories = [
 const Home = () => {
   const [videos, setVideos] = useState([]);
   const [streams, setStreams] = useState([]);
+  const [exploreVideos, setExploreVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
   const { user } = useAuth();
@@ -22,6 +24,7 @@ const Home = () => {
   useEffect(() => {
     fetchVideos();
     fetchLiveStreams();
+    fetchExploreVideos();
   }, []);
 
   const fetchVideos = async () => {
@@ -45,6 +48,15 @@ const Home = () => {
     }
   };
 
+  const fetchExploreVideos = async () => {
+    try {
+      const pexelsVideos = await getPopularVideos(8);
+      setExploreVideos(pexelsVideos);
+    } catch (error) {
+      console.error('Error fetching explore videos:', error);
+    }
+  };
+
   const handleVideoDelete = (videoId) => {
     setVideos(videos.filter(v => v._id !== videoId));
   };
@@ -55,6 +67,11 @@ const Home = () => {
     } else {
       navigate(`/live/${stream._id}`);
     }
+  };
+
+  const handleExploreVideoClick = (video) => {
+    // Open Pexels video in new tab or play inline
+    window.open(video.pexelsUrl, '_blank');
   };
 
   const trendingVideos = [...videos].sort((a, b) => b.views - a.views).slice(0, 6);
@@ -146,6 +163,40 @@ const Home = () => {
                   <span className="trending-views">{video.views} views</span>
                 </div>
               </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Explore Section - Pexels Videos */}
+      {exploreVideos.length > 0 && (
+        <section className="section explore-section">
+          <div className="section-header">
+            <h2><FiGlobe className="section-icon explore-icon" /> Explore</h2>
+            <span className="pexels-credit">Powered by Pexels</span>
+          </div>
+          <div className="explore-grid">
+            {exploreVideos.map((video) => (
+              <div 
+                key={video._id} 
+                className="explore-card"
+                onClick={() => handleExploreVideoClick(video)}
+              >
+                <div className="explore-thumbnail">
+                  <img src={video.thumbnail} alt={video.title} />
+                  <div className="explore-overlay">
+                    <FiPlay className="play-icon" />
+                  </div>
+                  <span className="explore-duration">
+                    {Math.floor(video.duration / 60)}:{String(Math.floor(video.duration % 60)).padStart(2, '0')}
+                  </span>
+                  <span className="explore-badge">Pexels</span>
+                </div>
+                <div className="explore-info">
+                  <h4>{video.title}</h4>
+                  <p>by {video.owner?.username}</p>
+                </div>
+              </div>
             ))}
           </div>
         </section>
