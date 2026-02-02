@@ -36,6 +36,11 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
+// Test route - add BEFORE route imports to test server
+app.get("/", (req, res) => {
+  res.json({ message: "StreamVerse API is running", status: "ok" });
+});
+
 //routes import
 import userRouter from "./routes/user.routes.js";
 import videoRouter from "./routes/video.routes.js";
@@ -59,11 +64,6 @@ app.use("/api/v1/playlist", playlistRouter);
 app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/streams", streamRouter);
-
-// Test route
-app.get("/", (req, res) => {
-  res.json({ message: "StreamVerse API is running", status: "ok" });
-});
 
 // Global error handling middleware
 app.use((err, req, res, next) => {
