@@ -7,7 +7,7 @@
 **A modern, full-featured video streaming platform with live streaming and video conferencing capabilities**
 
 [![Live Demo](https://img.shields.io/badge/Live-Demo-success?style=for-the-badge&logo=vercel)](https://streamverse-yt.vercel.app)
-[![Backend API](https://img.shields.io/badge/Backend-API-blue?style=for-the-badge&logo=render)](https://streamverse-dc50.onrender.com)
+[![Backend API](https://img.shields.io/badge/Backend-API-blue?style=for-the-badge&logo=render)](https://streamverse-dc5l.onrender.com)
 
 [Features](#-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Deployment](#-deployment) • [Screenshots](#-screenshots)
 
