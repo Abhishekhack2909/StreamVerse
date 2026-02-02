@@ -174,25 +174,6 @@ Visit `http://localhost:5173` 🎉
 
 ---
 
-## 📸 Screenshots
-
-### Home Page
-![Home Page](https://via.placeholder.com/800x400/0a0a0a/ffffff?text=StreamVerse+Home)
-
-### Video Player
-![Video Player](https://via.placeholder.com/800x400/0a0a0a/ffffff?text=Video+Player)
-
-### Live Streaming
-![Live Streaming](https://via.placeholder.com/800x400/0a0a0a/ffffff?text=Live+Streaming)
-
-### StreamMeet
-![StreamMeet](https://via.placeholder.com/800x400/0a0a0a/ffffff?text=StreamMeet+Video+Call)
-
-### Channel Page
-![Channel Page](https://via.placeholder.com/800x400/0a0a0a/ffffff?text=Channel+Page)
-
----
-
 ## 🏗 Project Structure
 
 ```
