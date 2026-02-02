@@ -2,6 +2,9 @@ import axios from "axios";
 
 const PEXELS_API_KEY = import.meta.env.VITE_PEXELS_API_KEY;
 
+// Debug log
+console.log("Pexels API Key exists:", !!PEXELS_API_KEY);
+
 const pexelsApi = axios.create({
   baseURL: "https://api.pexels.com",
   headers: {
@@ -11,10 +14,16 @@ const pexelsApi = axios.create({
 
 // Get popular videos
 export const getPopularVideos = async (perPage = 12) => {
+  if (!PEXELS_API_KEY) {
+    console.warn("Pexels API key not configured");
+    return [];
+  }
   try {
+    console.log("Fetching Pexels videos...");
     const response = await pexelsApi.get("/videos/popular", {
       params: { per_page: perPage },
     });
+    console.log("Pexels response:", response.data.videos?.length, "videos");
     return response.data.videos.map(formatVideo);
   } catch (error) {
     console.error("Error fetching Pexels videos:", error);
