@@ -60,6 +60,11 @@ app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/streams", streamRouter);
 
+// Test route
+app.get("/", (req, res) => {
+  res.json({ message: "StreamVerse API is running", status: "ok" });
+});
+
 // Global error handling middleware
 app.use((err, req, res, next) => {
   console.error("Error:", err);
