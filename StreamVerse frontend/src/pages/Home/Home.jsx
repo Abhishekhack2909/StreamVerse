@@ -19,11 +19,17 @@ const Home = () => {
 
   const fetchVideos = async () => {
     try {
+      console.log('🎬 Fetching videos from:', API.defaults.baseURL + '/videos');
       const { data } = await API.get('/videos');
-      console.log('Videos response:', data);
+      console.log('✅ Videos response:', data);
       setVideos(data.data?.videos || data.data?.docs || data.data || []);
     } catch (error) {
-      console.error('Error fetching videos:', error);
+      console.error('❌ Error fetching videos:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       setVideos([]);
     } finally {
       setLoading(false);

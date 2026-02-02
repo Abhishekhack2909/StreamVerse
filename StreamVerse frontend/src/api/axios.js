@@ -44,6 +44,15 @@ API.interceptors.request.use(
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Log detailed error information
+    console.error("❌ API Error:", {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: error.message,
+      data: error.response?.data,
+    });
+
     if (error.response?.status === 401 && supabase) {
       try {
         // Try to refresh the session
